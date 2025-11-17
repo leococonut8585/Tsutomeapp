@@ -5,6 +5,7 @@ import { Calendar, Star, Check } from "lucide-react";
 import { Tsutome } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
+import { useState, useRef } from "react";
 
 interface TsutomeCardProps {
   tsutome: Tsutome;
@@ -33,13 +34,63 @@ export function TsutomeCard({ tsutome, onComplete, onClick }: TsutomeCardProps) 
   const stars = difficultyStars[tsutome.difficulty] || 3;
   const deadline = new Date(tsutome.deadline);
   const isOverdue = deadline < new Date();
+  
+  // スワイプ処理
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const touchStartX = useRef(0);
+
+  // タッチイベントハンドラー
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isSwiping) return;
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - touchStartX.current;
+    // 右スワイプのみ許可（完了ジェスチャー）
+    if (diff > 0) {
+      setSwipeOffset(Math.min(diff, 100));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (swipeOffset > 60 && onComplete) {
+      // 60px以上スワイプしたら完了
+      onComplete();
+      // ハプティックフィードバック（可能な場合）
+      if (window.navigator && 'vibrate' in window.navigator) {
+        window.navigator.vibrate(50);
+      }
+    }
+    setSwipeOffset(0);
+    setIsSwiping(false);
+  };
 
   return (
     <Card
-      className="p-4 hover-elevate active-elevate-2 cursor-pointer transition-all"
+      className="p-4 hover-elevate active-elevate-2 cursor-pointer transition-all overflow-hidden relative"
       onClick={onClick}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{
+        transform: `translateX(${swipeOffset}px)`,
+        transition: isSwiping ? 'none' : 'transform 0.3s ease-out',
+      }}
       data-testid={`tsutome-card-${tsutome.id}`}
     >
+      {/* スワイプ時の背景 */}
+      {swipeOffset > 0 && (
+        <div 
+          className="absolute inset-0 bg-success/20 flex items-center px-4"
+          style={{ opacity: Math.min(swipeOffset / 60, 1) }}
+        >
+          <Check className="w-6 h-6 text-success" />
+        </div>
+      )}
       <div className="flex gap-3">
         {/* モンスター画像 */}
         <div className="flex-shrink-0">
