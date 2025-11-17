@@ -1,9 +1,14 @@
 import OpenAI from "openai";
 
 // Replit AI Integrations経由でOpenAIを使用
+// 環境変数が設定されていない場合はエラーを出す
+if (!process.env.REPLIT_AGENT_API_KEY || !process.env.REPLIT_AGENT_API_BASE_URL) {
+  console.warn("WARNING: Replit AI Integration environment variables not found. AI features may not work.");
+}
+
 const openai = new OpenAI({
-  apiKey: process.env.REPLIT_AGENT_API_KEY || "dummy-key",
-  baseURL: process.env.REPLIT_AGENT_API_BASE_URL || "https://api.openai.com/v1",
+  apiKey: process.env.REPLIT_AGENT_API_KEY || "",
+  baseURL: process.env.REPLIT_AGENT_API_BASE_URL || "",
 });
 
 // 妖怪の名前を生成

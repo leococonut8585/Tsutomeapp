@@ -104,6 +104,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Tsutome not found" });
       }
 
+      // 既に完了済みまたはキャンセル済みのチェック
+      if (tsutome.completed) {
+        return res.status(400).json({ error: "Task already completed" });
+      }
+      if (tsutome.cancelled) {
+        return res.status(400).json({ error: "Task was cancelled" });
+      }
+
       const player = await storage.getPlayer(tsutome.playerId);
       if (!player) {
         return res.status(404).json({ error: "Player not found" });
