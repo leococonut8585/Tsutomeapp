@@ -67,8 +67,15 @@ export function useCompleteTsutome() {
 // 修練作成
 export function useCreateShuren() {
   return useMutation({
-    mutationFn: async (data: InsertShuren) => {
-      const res = await apiRequest("POST", "/api/shurens", data);
+    mutationFn: async (data: Partial<InsertShuren>) => {
+      // 必須フィールドの追加
+      const completeData = {
+        ...data,
+        startDate: data.startDate || new Date(),
+        trainingName: data.trainingName || "", // AIが生成
+        playerId: data.playerId || "", // サーバー側で設定
+      };
+      const res = await apiRequest("POST", "/api/shurens", completeData);
       return res.json();
     },
     onSuccess: () => {

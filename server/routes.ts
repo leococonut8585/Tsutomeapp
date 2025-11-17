@@ -239,7 +239,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      const validation = insertShurenSchema.safeParse(req.body);
+      // 日付文字列をDateオブジェクトに変換
+      const data = {
+        ...req.body,
+        startDate: new Date(req.body.startDate),
+      };
+
+      const validation = insertShurenSchema.safeParse(data);
       if (!validation.success) {
         return res.status(400).json({ error: "Invalid input", details: validation.error });
       }
@@ -247,16 +253,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = validation.data;
 
       // AI生成: 修練名
-      const trainingName = await generateTrainingName(data.title, data.genre);
+      const trainingName = await generateTrainingName(validatedData.title, validatedData.genre);
 
       // AI生成: 修練画像（オプション）
       const trainingImageUrl = await generateImage(
-        `${trainingName}, ${data.genre} martial arts training`,
+        `${trainingName}, ${validatedData.genre} martial arts training`,
         "training"
       );
 
       const shuren = await storage.createShuren({
-        ...data,
+        ...validatedData,
         playerId: player.id,
         trainingName,
         trainingImageUrl,
@@ -539,6 +545,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stories);
     } catch (error) {
       console.error("Error fetching stories:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/stories/:id/view", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const story = await storage.getStory(id);
+      if (!story) {
+        return res.status(404).json({ error: "Story not found" });
+      }
+
+      const updatedStory = await storage.updateStory(id, { viewed: true });
+      res.json(updatedStory);
+    } catch (error) {
+      console.error("Error marking story as viewed:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

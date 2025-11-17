@@ -1,14 +1,18 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Book } from "lucide-react";
+import { ArrowLeft, Book, Scroll } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Story } from "@shared/schema";
 import { useLocation } from "wouter";
+import { StoryViewerDialog } from "@/components/story-viewer-dialog";
 
 export default function StoryPage() {
   const [, setLocation] = useLocation();
+  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [showViewerDialog, setShowViewerDialog] = useState(false);
 
   // ストーリー一覧取得
   const { data: stories, isLoading } = useQuery<Story[]>({
@@ -54,7 +58,14 @@ export default function StoryPage() {
         ) : sortedStories.length > 0 ? (
           <div className="space-y-3">
             {sortedStories.map((story) => (
-              <StoryCard key={story.id} story={story} />
+              <StoryCard 
+                key={story.id} 
+                story={story} 
+                onView={(s) => {
+                  setSelectedStory(s);
+                  setShowViewerDialog(true);
+                }}
+              />
             ))}
           </div>
         ) : (
@@ -67,11 +78,18 @@ export default function StoryPage() {
           </div>
         )}
       </main>
+
+      {/* ストーリー閲覧ダイアログ */}
+      <StoryViewerDialog
+        story={selectedStory}
+        open={showViewerDialog}
+        onOpenChange={setShowViewerDialog}
+      />
     </div>
   );
 }
 
-function StoryCard({ story }: { story: Story }) {
+function StoryCard({ story, onView }: { story: Story; onView: (story: Story) => void }) {
   return (
     <Card
       className="overflow-hidden hover-elevate active-elevate-2 cursor-pointer"
@@ -116,7 +134,14 @@ function StoryCard({ story }: { story: Story }) {
           <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed" data-testid="story-text">
             {story.storyText}
           </p>
-          <Button variant="outline" size="sm" className="w-full mt-2" data-testid="button-view-story">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full mt-2 gap-1.5" 
+            onClick={() => onView(story)}
+            data-testid="button-view-story"
+          >
+            <Scroll className="w-3 h-3" />
             物語を読む
           </Button>
         </div>

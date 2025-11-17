@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ShurenCard } from "@/components/shuren-card";
 import { Button } from "@/components/ui/button";
@@ -5,9 +6,14 @@ import { Plus, ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shuren } from "@shared/schema";
 import { useLocation } from "wouter";
+import { ShurenFormDialog } from "@/components/shuren-form-dialog";
+import { ShurenRecordDialog } from "@/components/shuren-record-dialog";
 
 export default function ShurenPage() {
   const [, setLocation] = useLocation();
+  const [showShurenForm, setShowShurenForm] = useState(false);
+  const [selectedShuren, setSelectedShuren] = useState<Shuren | null>(null);
+  const [showRecordDialog, setShowRecordDialog] = useState(false);
 
   // 修練一覧取得
   const { data: shurens, isLoading } = useQuery<Shuren[]>({
@@ -32,7 +38,12 @@ export default function ShurenPage() {
             </Button>
             <h1 className="text-xl font-serif font-bold text-chart-4">修練の道</h1>
           </div>
-          <Button size="sm" className="gap-1.5" data-testid="button-add-shuren">
+          <Button 
+            size="sm" 
+            className="gap-1.5" 
+            data-testid="button-add-shuren"
+            onClick={() => setShowShurenForm(true)}
+          >
             <Plus className="w-4 h-4" />
             新規
           </Button>
@@ -63,10 +74,11 @@ export default function ShurenPage() {
                 key={shuren.id}
                 shuren={shuren}
                 onComplete={() => {
-                  // TODO: 記録処理
+                  setSelectedShuren(shuren);
+                  setShowRecordDialog(true);
                 }}
                 onClick={() => {
-                  // TODO: 詳細表示
+                  // 詳細表示（将来実装）
                 }}
               />
             ))}
@@ -74,13 +86,31 @@ export default function ShurenPage() {
         ) : (
           <div className="bg-card rounded-xl p-12 text-center border border-dashed border-border">
             <p className="text-muted-foreground mb-4">まだ修練を始めていません</p>
-            <Button size="sm" variant="outline" data-testid="button-add-first-shuren">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              data-testid="button-add-first-shuren"
+              onClick={() => setShowShurenForm(true)}
+            >
               <Plus className="w-4 h-4 mr-1.5" />
               最初の修練を始める
             </Button>
           </div>
         )}
       </main>
+
+      {/* 修練作成ダイアログ */}
+      <ShurenFormDialog 
+        open={showShurenForm} 
+        onOpenChange={setShowShurenForm} 
+      />
+
+      {/* 記録ダイアログ */}
+      <ShurenRecordDialog
+        shuren={selectedShuren}
+        open={showRecordDialog}
+        onOpenChange={setShowRecordDialog}
+      />
     </div>
   );
 }
