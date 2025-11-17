@@ -113,13 +113,24 @@ export class MemStorage implements IStorage {
     });
     this.defaultPlayerId = defaultPlayer.id;
 
-    // サンプルアイテム作成
-    await this.createItem({
+    // ========== アイテム作成 ==========
+    // 消耗品
+    const healingPotion = await this.createItem({
       name: "傷薬",
       description: "HPを50回復する",
       itemType: "consumable",
       price: 100,
       hpRestore: 50,
+      statBoost: null,
+      imageUrl: null,
+    });
+
+    const fullPotion = await this.createItem({
+      name: "万能薬",
+      description: "HPを全回復する",
+      itemType: "consumable",
+      price: 500,
+      hpRestore: 9999,
       statBoost: null,
       imageUrl: null,
     });
@@ -132,6 +143,192 @@ export class MemStorage implements IStorage {
       hpRestore: 0,
       statBoost: JSON.stringify({ strength: 5 }),
       imageUrl: null,
+    });
+
+    await this.createItem({
+      name: "知恵の書",
+      description: "知略を+5する",
+      itemType: "consumable",
+      price: 300,
+      hpRestore: 0,
+      statBoost: JSON.stringify({ wisdom: 5 }),
+      imageUrl: null,
+    });
+
+    await this.createItem({
+      name: "疾風の護符",
+      description: "敏捷を+3する",
+      itemType: "consumable",
+      price: 200,
+      hpRestore: 0,
+      statBoost: JSON.stringify({ agility: 3 }),
+      imageUrl: null,
+    });
+
+    // 装備品
+    await this.createItem({
+      name: "鉄の剣",
+      description: "武勇を+10する基本的な剣",
+      itemType: "equipment",
+      price: 1000,
+      hpRestore: 0,
+      statBoost: JSON.stringify({ strength: 10 }),
+      imageUrl: null,
+    });
+
+    await this.createItem({
+      name: "鋼の鎧",
+      description: "耐久を+15する頑丈な鎧",
+      itemType: "equipment",
+      price: 1500,
+      hpRestore: 0,
+      statBoost: JSON.stringify({ vitality: 15 }),
+      imageUrl: null,
+    });
+
+    await this.createItem({
+      name: "賢者の帽子",
+      description: "知略を+12する魔法の帽子",
+      itemType: "equipment",
+      price: 1200,
+      hpRestore: 0,
+      statBoost: JSON.stringify({ wisdom: 12 }),
+      imageUrl: null,
+    });
+
+    // 素材
+    await this.createItem({
+      name: "妖怪の牙",
+      description: "武器強化に使う素材",
+      itemType: "material",
+      price: 50,
+      hpRestore: 0,
+      statBoost: null,
+      imageUrl: null,
+    });
+
+    await this.createItem({
+      name: "霊石の欠片",
+      description: "装備強化に使う神秘的な石",
+      itemType: "material",
+      price: 75,
+      hpRestore: 0,
+      statBoost: null,
+      imageUrl: null,
+    });
+
+    // ========== プレイヤーの初期インベントリ ==========
+    await this.addToInventory({
+      playerId: defaultPlayer.id,
+      itemId: healingPotion.id,
+      quantity: 3,
+      equipped: false,
+    });
+
+    // ========== ボス作成 ==========
+    const firstBoss = await this.createBoss({
+      playerId: defaultPlayer.id,
+      bossNumber: 1,
+      bossName: "鬼蜘蛛",
+      bossImageUrl: null,
+      hp: 1000,
+      maxHp: 1000,
+      attackPower: 20,
+      challengeStartDate: new Date(),
+    });
+
+    // ========== ストーリー作成 ==========
+    await this.createStory({
+      playerId: defaultPlayer.id,
+      bossNumber: 1,
+      storyText: "かつて平和だったこの地に、突如として妖怪たちが現れ始めた。最初に現れたのは巨大な鬼蜘蛛。村人たちは恐怖に怯えている。勇敢な剣士として、あなたは立ち上がった...",
+      storyImageUrl: null,
+    });
+
+    // ========== サンプルタスク作成 ==========
+    // 務メの例
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    await this.createTsutome({
+      playerId: defaultPlayer.id,
+      title: "プロジェクト企画書を作成",
+      deadline: tomorrow,
+      genre: "work",
+      startDate: new Date(),
+      difficulty: "normal",
+      monsterName: "締切妖怪デッドライナー",
+      monsterImageUrl: null,
+      linkedShurenId: null,
+      linkedShihanId: null,
+    });
+
+    const threeDaysLater = new Date();
+    threeDaysLater.setDate(threeDaysLater.getDate() + 3);
+    
+    await this.createTsutome({
+      playerId: defaultPlayer.id,
+      title: "部屋の大掃除",
+      deadline: threeDaysLater,
+      genre: "housework",
+      startDate: new Date(),
+      difficulty: "easy",
+      monsterName: "ホコリ妖怪ダストン",
+      monsterImageUrl: null,
+      linkedShurenId: null,
+      linkedShihanId: null,
+    });
+
+    // 修練の例
+    await this.createShuren({
+      playerId: defaultPlayer.id,
+      title: "毎日10分瞑想",
+      genre: "hobby",
+      repeatInterval: 1,
+      startDate: new Date(),
+      dataTitle: "瞑想時間",
+      dataUnit: "分",
+      trainingName: "精神統一の修行",
+      trainingImageUrl: null,
+    });
+
+    await this.createShuren({
+      playerId: defaultPlayer.id,
+      title: "週3回ランニング",
+      genre: "exercise",
+      repeatInterval: 2,
+      startDate: new Date(),
+      dataTitle: "走行距離",
+      dataUnit: "km",
+      trainingName: "疾風の足腰鍛錬",
+      trainingImageUrl: null,
+    });
+
+    // 師範の例
+    const sixMonthsLater = new Date();
+    sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
+    
+    await this.createShihan({
+      playerId: defaultPlayer.id,
+      title: "TOEICスコア800点達成",
+      targetDate: sixMonthsLater,
+      genre: "study",
+      startDate: new Date(),
+      masterName: "言霊師範イングリッシュ",
+      masterImageUrl: null,
+    });
+
+    // 刺客の例
+    const tomorrow24Hours = new Date();
+    tomorrow24Hours.setDate(tomorrow24Hours.getDate() + 1);
+    
+    await this.createShikaku({
+      playerId: defaultPlayer.id,
+      title: "緊急レポート提出",
+      difficulty: "hard",
+      assassinName: "締切刺客アージェント",
+      assassinImageUrl: null,
+      expiresAt: tomorrow24Hours,
     });
   }
 
