@@ -1,12 +1,17 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { StatsBar } from "@/components/stats-bar";
 import { TsutomeCard } from "@/components/tsutome-card";
+import { TaskFormDialog } from "@/components/task-form-dialog";
 import { Button } from "@/components/ui/button";
 import { Plus, Menu, Settings } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Player, Tsutome } from "@shared/schema";
+import { useCompleteTsutome } from "@/hooks/use-tasks";
 
 export default function Home() {
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const completeTsutome = useCompleteTsutome();
   // プレイヤー情報取得
   const { data: player, isLoading: playerLoading } = useQuery<Player>({
     queryKey: ["/api/player"],
@@ -60,7 +65,12 @@ export default function Home() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold font-serif">今日の務メ</h2>
-            <Button size="sm" className="gap-1.5" data-testid="button-add-tsutome">
+            <Button 
+              size="sm" 
+              className="gap-1.5" 
+              data-testid="button-add-tsutome"
+              onClick={() => setShowTaskForm(true)}
+            >
               <Plus className="w-4 h-4" />
               新規
             </Button>
@@ -79,10 +89,10 @@ export default function Home() {
                   key={tsutome.id}
                   tsutome={tsutome}
                   onComplete={() => {
-                    // TODO: 完了処理
+                    completeTsutome.mutate(tsutome.id);
                   }}
                   onClick={() => {
-                    // TODO: 詳細表示
+                    // 詳細表示（将来実装）
                   }}
                 />
               ))}
@@ -90,7 +100,12 @@ export default function Home() {
           ) : (
             <div className="bg-card rounded-xl p-12 text-center border border-dashed border-border">
               <p className="text-muted-foreground mb-4">討伐すべき妖怪はいません</p>
-              <Button size="sm" variant="outline" data-testid="button-add-first-tsutome">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                data-testid="button-add-first-tsutome"
+                onClick={() => setShowTaskForm(true)}
+              >
                 <Plus className="w-4 h-4 mr-1.5" />
                 最初の務メを追加
               </Button>
@@ -106,6 +121,13 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {/* タスク作成ダイアログ */}
+      <TaskFormDialog 
+        open={showTaskForm} 
+        onOpenChange={setShowTaskForm}
+        taskType="tsutome"
+      />
     </div>
   );
 }

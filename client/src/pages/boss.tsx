@@ -7,9 +7,11 @@ import { ArrowLeft, Swords, Shield } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Boss, Player } from "@shared/schema";
 import { useLocation } from "wouter";
+import { useAttackBoss } from "@/hooks/use-tasks";
 
 export default function BossPage() {
   const [, setLocation] = useLocation();
+  const attackBoss = useAttackBoss();
 
   // プレイヤー情報取得
   const { data: player } = useQuery<Player>({
@@ -160,9 +162,15 @@ export default function BossPage() {
 
             {/* アクションボタン */}
             <div className="space-y-2">
-              <Button className="w-full h-12" size="lg" data-testid="button-daily-attack">
+              <Button 
+                className="w-full h-12" 
+                size="lg" 
+                data-testid="button-daily-attack"
+                onClick={() => currentBoss && attackBoss.mutate(currentBoss.id)}
+                disabled={attackBoss.isPending}
+              >
                 <Swords className="w-5 h-5 mr-2" />
-                今日の攻撃を実行
+                {attackBoss.isPending ? "攻撃中..." : "今日の攻撃を実行"}
               </Button>
               <p className="text-xs text-center text-muted-foreground">
                 毎日1回、自動で攻撃が行われます

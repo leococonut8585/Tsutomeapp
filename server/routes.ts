@@ -65,25 +65,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
 
+      // 日付文字列をDateオブジェクトに変換
+      const data = {
+        ...req.body,
+        deadline: new Date(req.body.deadline),
+        startDate: new Date(req.body.startDate),
+      };
+
       // バリデーション
-      const validation = insertTsutomeSchema.safeParse(req.body);
+      const validation = insertTsutomeSchema.safeParse(data);
       if (!validation.success) {
         return res.status(400).json({ error: "Invalid input", details: validation.error });
       }
 
-      const data = validation.data;
+      const validatedData = validation.data;
 
       // AI生成: 妖怪名
-      const monsterName = await generateMonsterName(data.title, data.genre, data.difficulty);
+      const monsterName = await generateMonsterName(validatedData.title, validatedData.genre, validatedData.difficulty);
 
       // AI生成: 妖怪画像（オプション、時間がかかる場合はスキップ可能）
       const monsterImageUrl = await generateImage(
-        `${monsterName}, ${data.genre} themed yokai monster`,
+        `${monsterName}, ${validatedData.genre} themed yokai monster`,
         "monster"
       );
 
       const tsutome = await storage.createTsutome({
-        ...data,
+        ...validatedData,
         playerId: player.id,
         monsterName,
         monsterImageUrl,
@@ -237,7 +244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid input", details: validation.error });
       }
 
-      const data = validation.data;
+      const validatedData = validation.data;
 
       // AI生成: 修練名
       const trainingName = await generateTrainingName(data.title, data.genre);

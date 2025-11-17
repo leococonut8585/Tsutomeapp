@@ -7,8 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Calendar as CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { ja } from "date-fns/locale";
+import { useCreateTsutome, useCreateShuren } from "@/hooks/use-tasks";
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -37,12 +38,46 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
   const [title, setTitle] = useState("");
   const [genre, setGenre] = useState("hobby");
   const [difficulty, setDifficulty] = useState("normal");
-  const [deadline, setDeadline] = useState<Date>(new Date());
+  const [deadline, setDeadline] = useState<Date>(addDays(new Date(), 7));
+  const [repeatInterval, setRepeatInterval] = useState(1);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const createTsutome = useCreateTsutome();
+  const createShuren = useCreateShuren();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: タスク作成API呼び出し
-    console.log({ title, genre, difficulty, deadline, taskType });
+
+    if (taskType === "tsutome") {
+      await createTsutome.mutateAsync({
+        title,
+        deadline,
+        genre,
+        startDate: new Date(),
+        difficulty,
+        monsterName: "", // AIが生成
+        linkedShurenId: null,
+        linkedShihanId: null,
+        playerId: "", // サーバー側で設定
+      });
+    } else if (taskType === "shuren") {
+      await createShuren.mutateAsync({
+        title,
+        genre,
+        repeatInterval,
+        startDate: new Date(),
+        dataTitle: "回数",
+        dataUnit: "回",
+        trainingName: "", // AIが生成
+        playerId: "", // サーバー側で設定
+      });
+    }
+
+    // フォームをリセット
+    setTitle("");
+    setGenre("hobby");
+    setDifficulty("normal");
+    setDeadline(addDays(new Date(), 7));
+    setRepeatInterval(1);
     onOpenChange(false);
   };
 
@@ -144,7 +179,8 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
                 type="number"
                 min="1"
                 max="30"
-                defaultValue="1"
+                value={repeatInterval}
+                onChange={(e) => setRepeatInterval(Number(e.target.value))}
                 data-testid="input-repeat-interval"
               />
               <p className="text-xs text-muted-foreground">
@@ -183,8 +219,13 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
             >
               キャンセル
             </Button>
-            <Button type="submit" className="flex-1" data-testid="button-submit">
-              作成
+            <Button 
+              type="submit" 
+              className="flex-1" 
+              data-testid="button-submit"
+              disabled={createTsutome.isPending || createShuren.isPending}
+            >
+              {createTsutome.isPending || createShuren.isPending ? "作成中..." : "作成"}
             </Button>
           </div>
         </form>

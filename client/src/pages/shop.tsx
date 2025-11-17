@@ -7,9 +7,11 @@ import { ArrowLeft, ShoppingBag, Coins } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Item, Player } from "@shared/schema";
 import { useLocation } from "wouter";
+import { useBuyItem } from "@/hooks/use-tasks";
 
 export default function ShopPage() {
   const [, setLocation] = useLocation();
+  const buyItem = useBuyItem();
 
   // プレイヤー情報取得
   const { data: player } = useQuery<Player>({
@@ -80,7 +82,13 @@ export default function ShopPage() {
                 {consumables.length > 0 ? (
                   <div className="grid grid-cols-3 gap-3">
                     {consumables.map((item) => (
-                      <ItemCard key={item.id} item={item} playerCoins={player?.coins || 0} />
+                      <ItemCard 
+                        key={item.id} 
+                        item={item} 
+                        playerCoins={player?.coins || 0} 
+                        onBuy={() => buyItem.mutate(item.id)}
+                        buying={buyItem.isPending}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -92,7 +100,13 @@ export default function ShopPage() {
                 {equipment.length > 0 ? (
                   <div className="grid grid-cols-3 gap-3">
                     {equipment.map((item) => (
-                      <ItemCard key={item.id} item={item} playerCoins={player?.coins || 0} />
+                      <ItemCard 
+                        key={item.id} 
+                        item={item} 
+                        playerCoins={player?.coins || 0} 
+                        onBuy={() => buyItem.mutate(item.id)}
+                        buying={buyItem.isPending}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -104,7 +118,13 @@ export default function ShopPage() {
                 {materials.length > 0 ? (
                   <div className="grid grid-cols-4 gap-2">
                     {materials.map((item) => (
-                      <MaterialCard key={item.id} item={item} playerCoins={player?.coins || 0} />
+                      <MaterialCard 
+                        key={item.id} 
+                        item={item} 
+                        playerCoins={player?.coins || 0} 
+                        onBuy={() => buyItem.mutate(item.id)}
+                        buying={buyItem.isPending}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -119,7 +139,17 @@ export default function ShopPage() {
   );
 }
 
-function ItemCard({ item, playerCoins }: { item: Item; playerCoins: number }) {
+function ItemCard({ 
+  item, 
+  playerCoins, 
+  onBuy, 
+  buying 
+}: { 
+  item: Item; 
+  playerCoins: number; 
+  onBuy: () => void; 
+  buying: boolean;
+}) {
   const canAfford = playerCoins >= item.price;
 
   return (
@@ -158,17 +188,31 @@ function ItemCard({ item, playerCoins }: { item: Item; playerCoins: number }) {
           size="sm"
           variant={canAfford ? "default" : "secondary"}
           className="h-7 px-2 text-xs"
-          disabled={!canAfford}
+          disabled={!canAfford || buying}
+          onClick={(e) => {
+            e.stopPropagation();
+            onBuy();
+          }}
           data-testid="button-buy-item"
         >
-          購入
+          {buying ? "..." : "購入"}
         </Button>
       </div>
     </Card>
   );
 }
 
-function MaterialCard({ item, playerCoins }: { item: Item; playerCoins: number }) {
+function MaterialCard({ 
+  item, 
+  playerCoins, 
+  onBuy, 
+  buying 
+}: { 
+  item: Item; 
+  playerCoins: number; 
+  onBuy: () => void; 
+  buying: boolean;
+}) {
   const canAfford = playerCoins >= item.price;
 
   return (
