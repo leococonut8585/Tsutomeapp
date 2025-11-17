@@ -184,3 +184,32 @@ export function useBuyItem() {
     },
   });
 }
+
+// 職業変更
+export function useChangeJob() {
+  return useMutation({
+    mutationFn: async (jobId: string) => {
+      const res = await apiRequest("POST", "/api/player/change-job", { jobId });
+      if (!res.ok) {
+        const error = await res.json();
+        throw error;
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player"] });
+      toast({
+        title: "転職完了",
+        description: "新しい職業に就きました！",
+      });
+    },
+    onError: (error: any) => {
+      const message = error.error || "転職に失敗しました";
+      toast({
+        title: "エラー",
+        description: message,
+        variant: "destructive",
+      });
+    },
+  });
+}

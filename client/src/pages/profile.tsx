@@ -1,15 +1,19 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Brain, Sword, Zap as Lightning, Heart, Sparkles, Calendar, Archive } from "lucide-react";
+import { ArrowLeft, Brain, Sword, Zap as Lightning, Heart, Sparkles, Calendar, Archive, Briefcase } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Player } from "@shared/schema";
 import { useLocation } from "wouter";
+import { JobChangeModal } from "@/components/job-change-modal";
+import { getJobById, getJobIcon } from "@/lib/jobs";
 
 export default function ProfilePage() {
   const [, setLocation] = useLocation();
+  const [showJobModal, setShowJobModal] = useState(false);
 
   // プレイヤー情報取得
   const { data: player, isLoading } = useQuery<Player>({
@@ -87,6 +91,95 @@ export default function ProfilePage() {
                     </div>
                     <Progress value={(player.exp / (player.level * 100)) * 100} className="h-2" />
                   </div>
+                </Card>
+
+                {/* 職業カード */}
+                <Card className="p-6 space-y-4">
+                  {(() => {
+                    const currentJob = getJobById(player.job || "novice");
+                    if (!currentJob && player.job !== "novice") return null;
+                    
+                    const isNovice = player.job === "novice" || !player.job;
+                    const JobIcon = !isNovice && currentJob ? getJobIcon(currentJob.icon) : Briefcase;
+                    
+                    return (
+                      <>
+                        {/* 職業名とレベル */}
+                        <div className="text-center space-y-3">
+                          <div 
+                            className="w-16 h-16 rounded-full mx-auto flex items-center justify-center"
+                            style={{ 
+                              backgroundColor: isNovice ? "#94a3b8" + "20" : `${currentJob?.color}20` 
+                            }}
+                          >
+                            <JobIcon 
+                              className="w-8 h-8" 
+                              style={{ 
+                                color: isNovice ? "#94a3b8" : currentJob?.color 
+                              }} 
+                            />
+                          </div>
+                          
+                          <div>
+                            <h3 className="text-3xl font-serif font-bold" data-testid="player-job">
+                              {isNovice ? "初心者" : currentJob?.nameJa}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {isNovice ? "Novice" : currentJob?.name}
+                            </p>
+                          </div>
+                          
+                          {!isNovice && (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-center gap-2">
+                                <span className="text-sm text-muted-foreground font-semibold">職業レベル</span>
+                                <span className="text-2xl font-bold font-serif" style={{ color: currentJob?.color }}>
+                                  {player.jobLevel}
+                                </span>
+                              </div>
+                              <Progress 
+                                value={(player.jobXp / 100) * 100} 
+                                className="h-2 max-w-[200px] mx-auto"
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                {player.jobXp} / 100 XP
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* 職業ボーナス */}
+                        {!isNovice && currentJob && (
+                          <div className="space-y-3 pt-3 border-t">
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">特性</p>
+                              <p className="text-sm">{currentJob.bonus}</p>
+                            </div>
+                            
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">
+                                奥義: <span className="font-serif text-sm">{currentJob.skill.nameJa}</span>
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {currentJob.skill.description}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* 転職ボタン */}
+                        <Button
+                          className="w-full"
+                          variant={isNovice ? "default" : "outline"}
+                          onClick={() => setShowJobModal(true)}
+                          data-testid="button-change-job"
+                        >
+                          <Briefcase className="w-4 h-4 mr-2" />
+                          {isNovice ? "職業を選ぶ" : "転職"}
+                        </Button>
+                      </>
+                    );
+                  })()}
                 </Card>
 
                 {/* ステータスカード */}
@@ -188,6 +281,12 @@ export default function ProfilePage() {
           </TabsContent>
         </Tabs>
       </main>
+      
+      {/* 職業変更モーダル */}
+      <JobChangeModal 
+        open={showJobModal} 
+        onOpenChange={setShowJobModal} 
+      />
     </div>
   );
 }

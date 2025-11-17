@@ -43,6 +43,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ Job Change ============
+  app.post("/api/player/change-job", async (req, res) => {
+    try {
+      const { jobId } = req.body;
+      
+      if (!jobId) {
+        return res.status(400).json({ error: "Job ID is required" });
+      }
+      
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Check if changing to the same job
+      if (player.job === jobId) {
+        return res.status(400).json({ error: "Already in this job" });
+      }
+      
+      // Check cost (first job change is free)
+      const isFirstJob = player.job === "novice";
+      const cost = isFirstJob ? 0 : 500;
+      
+      if (player.coins < cost) {
+        return res.status(400).json({ error: "所持金が不足しています" });
+      }
+      
+      // Apply job-specific bonuses
+      let updates: any = {
+        job: jobId,
+        jobLevel: 1,
+        jobXp: 0,
+        coins: player.coins - cost,
+      };
+      
+      // Job-specific stat adjustments
+      if (jobId === "monk") {
+        // Monk gets +50 max HP
+        updates.maxHp = 150;
+        // Restore HP if below new max
+        if (player.hp < 150) {
+          updates.hp = Math.min(player.hp + 50, 150);
+        }
+      } else if (jobId === "guardian") {
+        // Guardian gets +25 vitality
+        updates.vitality = player.vitality + 25;
+      } else if (jobId === "mystic") {
+        // Mystic gets +5 to all stats and +10 luck
+        updates.wisdom = player.wisdom + 5;
+        updates.strength = player.strength + 5;
+        updates.agility = player.agility + 5;
+        updates.vitality = player.vitality + 5;
+        updates.luck = player.luck + 15; // +5 base + 10 extra
+      } else {
+        // Reset to base max HP for other jobs if changing from monk
+        if (player.job === "monk") {
+          updates.maxHp = 100;
+          updates.hp = Math.min(player.hp, 100);
+        }
+      }
+      
+      // Update player
+      const updatedPlayer = await storage.updatePlayer(player.id, updates);
+      
+      res.json({
+        success: true,
+        player: updatedPlayer,
+        cost,
+      });
+    } catch (error) {
+      console.error("Error changing job:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // ============ Tsutome (務メ) ============
   app.get("/api/tsutomes", async (req, res) => {
     try {
@@ -140,8 +215,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         extreme: 400,
       };
 
-      const expGain = difficultyExp[tsutome.difficulty] || 100;
-      const coinsGain = difficultyCoins[tsutome.difficulty] || 50;
+      let expGain = difficultyExp[tsutome.difficulty] || 100;
+      let coinsGain = difficultyCoins[tsutome.difficulty] || 50;
+
+      // Job-specific bonuses
+      if (player.job === "samurai" && ["exercise", "work"].includes(tsutome.genre)) {
+        // Samurai gets +20% XP from combat-related tasks
+        expGain = Math.floor(expGain * 1.2);
+      } else if (player.job === "monk" && tsutome.genre === "exercise") {
+        // Monk gets bonus from training tasks
+        expGain = Math.floor(expGain * 1.25);
+      } else if (player.job === "scholar" && tsutome.genre === "study") {
+        // Scholar gets +30% XP from study tasks
+        expGain = Math.floor(expGain * 1.3);
+      } else if (player.job === "ninja") {
+        // Ninja completes tasks 20% faster (simulated as bonus)
+        expGain = Math.floor(expGain * 1.1);
+      }
+      
+      // Scholar gets +25% coins
+      if (player.job === "scholar") {
+        coinsGain = Math.floor(coinsGain * 1.25);
+      }
 
       // ボーナス: 早期完了
       const deadline = new Date(tsutome.deadline);
@@ -150,6 +245,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const finalExp = Math.floor(expGain * earlyBonus);
       const finalCoins = Math.floor(coinsGain * earlyBonus);
+      
+      // Job XP (50% of regular XP)
+      const jobXpGain = Math.floor(finalExp * 0.5);
 
       // プレイヤー更新
       const newExp = player.exp + finalExp;
@@ -161,6 +259,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       while (remainingExp >= newLevel * 100) {
         remainingExp -= newLevel * 100;
         newLevel++;
+      }
+      
+      // Job XP and level up
+      const newJobXp = player.jobXp + jobXpGain;
+      let newJobLevel = player.jobLevel;
+      let remainingJobXp = newJobXp;
+      
+      // Job level up (100 XP per level)
+      while (remainingJobXp >= 100) {
+        remainingJobXp -= 100;
+        newJobLevel++;
       }
 
       // ステータス成長（ジャンルに応じて）
@@ -179,6 +288,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         exp: remainingExp,
         level: newLevel,
         coins: newCoins,
+        jobXp: remainingJobXp,
+        jobLevel: newJobLevel,
         ...growth,
       });
 

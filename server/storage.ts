@@ -110,6 +110,12 @@ export class MemStorage implements IStorage {
       agility: 10,
       vitality: 10,
       luck: 10,
+      // Job system fields
+      job: "novice",
+      jobLevel: 1,
+      jobXp: 0,
+      skills: [],
+      streak: 0,
     });
     this.defaultPlayerId = defaultPlayer.id;
 
@@ -346,6 +352,12 @@ export class MemStorage implements IStorage {
     const player: Player = {
       ...insertPlayer,
       id,
+      // Ensure job system fields have defaults if not provided
+      job: insertPlayer.job || "novice",
+      jobLevel: insertPlayer.jobLevel || 1,
+      jobXp: insertPlayer.jobXp || 0,
+      skills: insertPlayer.skills || [],
+      streak: insertPlayer.streak || 0,
       createdAt: new Date(),
     };
     this.players.set(id, player);
