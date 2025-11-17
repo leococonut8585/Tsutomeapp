@@ -1,0 +1,111 @@
+import { useQuery } from "@tanstack/react-query";
+import { StatsBar } from "@/components/stats-bar";
+import { TsutomeCard } from "@/components/tsutome-card";
+import { Button } from "@/components/ui/button";
+import { Plus, Menu, Settings } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Player, Tsutome } from "@shared/schema";
+
+export default function Home() {
+  // プレイヤー情報取得
+  const { data: player, isLoading: playerLoading } = useQuery<Player>({
+    queryKey: ["/api/player"],
+  });
+
+  // 務メ（タスク）一覧取得
+  const { data: tsutomes, isLoading: tsutomesLoading } = useQuery<Tsutome[]>({
+    queryKey: ["/api/tsutomes"],
+  });
+
+  const activeTsutomes = tsutomes?.filter((t) => !t.completed && !t.cancelled) || [];
+
+  return (
+    <div className="min-h-screen pb-20 bg-background">
+      {/* ヘッダー */}
+      <header className="sticky top-0 z-40 bg-card border-b border-card-border shadow-sm">
+        <div className="flex items-center justify-between px-4 h-14">
+          <h1 className="text-xl font-serif font-bold text-primary">務メ討魔録</h1>
+          <div className="flex items-center gap-2">
+            <Button size="icon" variant="ghost" data-testid="button-settings">
+              <Settings className="w-5 h-5" />
+            </Button>
+            <Button size="icon" variant="ghost" data-testid="button-menu">
+              <Menu className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* メインコンテンツ */}
+      <main className="px-4 py-4 space-y-4">
+        {/* ステータスバー */}
+        {playerLoading ? (
+          <Skeleton className="h-40 w-full rounded-xl" />
+        ) : player ? (
+          <StatsBar
+            level={player.level}
+            exp={player.exp}
+            expToNext={player.level * 100}
+            hp={player.hp}
+            maxHp={player.maxHp}
+            coins={player.coins}
+          />
+        ) : (
+          <div className="bg-card rounded-xl p-8 text-center">
+            <p className="text-muted-foreground">プレイヤーデータを読み込めません</p>
+          </div>
+        )}
+
+        {/* 務メ一覧セクション */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold font-serif">今日の務メ</h2>
+            <Button size="sm" className="gap-1.5" data-testid="button-add-tsutome">
+              <Plus className="w-4 h-4" />
+              新規
+            </Button>
+          </div>
+
+          {tsutomesLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-32 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : activeTsutomes.length > 0 ? (
+            <div className="space-y-3">
+              {activeTsutomes.map((tsutome) => (
+                <TsutomeCard
+                  key={tsutome.id}
+                  tsutome={tsutome}
+                  onComplete={() => {
+                    // TODO: 完了処理
+                  }}
+                  onClick={() => {
+                    // TODO: 詳細表示
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-card rounded-xl p-12 text-center border border-dashed border-border">
+              <p className="text-muted-foreground mb-4">討伐すべき妖怪はいません</p>
+              <Button size="sm" variant="outline" data-testid="button-add-first-tsutome">
+                <Plus className="w-4 h-4 mr-1.5" />
+                最初の務メを追加
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* 刺客（緊急タスク）セクション - TODO */}
+        <div className="space-y-3">
+          <h2 className="text-lg font-bold font-serif text-destructive">急襲！刺客</h2>
+          <div className="bg-card rounded-xl p-8 text-center border border-dashed border-border">
+            <p className="text-muted-foreground text-sm">現在、刺客の襲撃はありません</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
