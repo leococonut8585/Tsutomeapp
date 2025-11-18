@@ -1,5 +1,5 @@
 import { useLocation, Link } from "wouter";
-import { ToriiIcon, KatanaIcon, OniMaskIcon, ScrollIcon } from "./icons/japanese-icons";
+import { ToriiIcon, KatanaIcon, OniMaskIcon, ScrollIcon, DragonIcon, ShurikenIcon } from "./icons/japanese-icons";
 
 export function BottomNav() {
   const [location] = useLocation();
@@ -8,6 +8,8 @@ export function BottomNav() {
   const navItems = [
     { path: "/", Icon: ToriiIcon, label: "務メ", testId: "nav-tsutome" },
     { path: "/shuren", Icon: KatanaIcon, label: "修練", testId: "nav-shuren" },
+    { path: "/shihan", Icon: DragonIcon, label: "師範", testId: "nav-shihan" },
+    { path: "/shikaku", Icon: ShurikenIcon, label: "刺客", testId: "nav-shikaku" },
     { path: "/boss", Icon: OniMaskIcon, label: "大敵", testId: "nav-boss" },
     { path: "/profile", Icon: ScrollIcon, label: "記録", testId: "nav-profile" },
   ];
