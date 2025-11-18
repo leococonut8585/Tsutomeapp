@@ -8,10 +8,13 @@ import { ShihanCard } from "@/components/shihan-card";
 import { TaskFormDialog } from "@/components/task-form-dialog";
 import { Shihan } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { TsutomeGenerateDialog } from "@/components/tsutome-generate-dialog";
 
 export default function ShihanPage() {
   const { toast } = useToast();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [selectedShihan, setSelectedShihan] = useState<Shihan | null>(null);
 
   // 師範一覧を取得
   const { data: shihans, isLoading } = useQuery<Shihan[]>({
@@ -104,6 +107,10 @@ export default function ShihanPage() {
                 key={shihan.id}
                 shihan={shihan}
                 onComplete={() => completeShihan.mutate(shihan.id)}
+                onGenerateTsutome={() => {
+                  setSelectedShihan(shihan);
+                  setGenerateDialogOpen(true);
+                }}
                 onClick={() => {
                   // 詳細表示（将来実装）
                 }}
@@ -158,6 +165,16 @@ export default function ShihanPage() {
         onOpenChange={setCreateDialogOpen}
         taskType="shihan"
       />
+      
+      {/* 務メ生成ダイアログ */}
+      {selectedShihan && (
+        <TsutomeGenerateDialog
+          open={generateDialogOpen}
+          onOpenChange={setGenerateDialogOpen}
+          source={selectedShihan}
+          sourceType="shihan"
+        />
+      )}
     </div>
   );
 }
