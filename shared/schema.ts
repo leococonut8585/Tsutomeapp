@@ -201,3 +201,29 @@ export type Item = typeof items.$inferSelect;
 export type InsertItem = z.infer<typeof insertItemSchema>;
 export type Inventory = typeof inventories.$inferSelect;
 export type InsertInventory = z.infer<typeof insertInventorySchema>;
+
+// DTOs for enriched responses
+export interface LinkSource {
+  type: "shuren" | "shihan";
+  id: string;
+  name: string;  // trainingName for shuren, masterName for shihan
+  title: string; // The source task title
+  continuousDays?: number; // For shuren
+  progress?: number; // For shihan (percentage)
+}
+
+export interface TsutomeWithLinkSource extends Tsutome {
+  linkSource?: LinkSource;
+  rewardBonus: number; // Percentage as decimal (0.2 = 20%)
+}
+
+// Bonus calculation helpers
+export function calculateShurenBonus(continuousDays: number): number {
+  // 5日ごとに10%ボーナス、最大50%
+  return Math.min(0.5, Math.floor(continuousDays / 5) * 0.1);
+}
+
+export function calculateShihanBonus(): number {
+  // 師範連携は固定20%ボーナス
+  return 0.2;
+}

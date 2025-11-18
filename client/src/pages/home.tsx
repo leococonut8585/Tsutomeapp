@@ -6,7 +6,7 @@ import { TaskFormDialog } from "@/components/task-form-dialog";
 import { Button } from "@/components/ui/button";
 import { Plus, Menu, Settings } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Player, Tsutome } from "@shared/schema";
+import { Player, TsutomeWithLinkSource } from "@shared/schema";
 import { useCompleteTsutome } from "@/hooks/use-tasks";
 
 export default function Home() {
@@ -18,7 +18,7 @@ export default function Home() {
   });
 
   // 務メ（タスク）一覧取得 - with linked source info
-  const { data: tsutomes, isLoading: tsutomesLoading } = useQuery<any[]>({
+  const { data: tsutomes, isLoading: tsutomesLoading } = useQuery<TsutomeWithLinkSource[]>({
     queryKey: ["/api/tsutomes"],
   });
 
@@ -93,7 +93,11 @@ export default function Home() {
                 <TsutomeCard
                   key={tsutome.id}
                   tsutome={tsutome}
-                  linkSource={tsutome.linkSource}
+                  linkSource={tsutome.linkSource ? {
+                    type: tsutome.linkSource.type,
+                    name: tsutome.linkSource.name,
+                    bonus: Math.round(tsutome.rewardBonus * 100)
+                  } : undefined}
                   onComplete={() => {
                     completeTsutome.mutate(tsutome.id);
                   }}

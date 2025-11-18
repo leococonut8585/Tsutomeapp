@@ -327,16 +327,12 @@ export class MemStorage implements IStorage {
     });
 
     // 刺客の例
-    const tomorrow24Hours = new Date();
-    tomorrow24Hours.setDate(tomorrow24Hours.getDate() + 1);
-    
     await this.createShikaku({
       playerId: defaultPlayer.id,
       title: "緊急レポート提出",
       difficulty: "hard",
       assassinName: "締切刺客アージェント",
       assassinImageUrl: null,
-      expiresAt: tomorrow24Hours,
     });
   }
 
@@ -400,6 +396,14 @@ export class MemStorage implements IStorage {
     return Array.from(this.tsutomes.values()).filter((t) => t.playerId === playerId);
   }
 
+  async getShuren(id: string): Promise<Shuren | null> {
+    return this.shurens.get(id) || null;
+  }
+
+  async getShihan(id: string): Promise<Shihan | null> {
+    return this.shihans.get(id) || null;
+  }
+
   async getTsutomesByShihanId(shihanId: string): Promise<Tsutome[]> {
     return Array.from(this.tsutomes.values()).filter((t) => t.linkedShihanId === shihanId);
   }
@@ -445,9 +449,6 @@ export class MemStorage implements IStorage {
   }
 
   // Shuren
-  async getShuren(id: string): Promise<Shuren | undefined> {
-    return this.shurens.get(id);
-  }
 
   async getAllShurens(playerId: string): Promise<Shuren[]> {
     return Array.from(this.shurens.values()).filter((s) => s.playerId === playerId);
@@ -490,9 +491,6 @@ export class MemStorage implements IStorage {
   }
 
   // Shihan
-  async getShihan(id: string): Promise<Shihan | undefined> {
-    return this.shihans.get(id);
-  }
 
   async getAllShihans(playerId: string): Promise<Shihan[]> {
     return Array.from(this.shihans.values()).filter((s) => s.playerId === playerId);
@@ -540,6 +538,10 @@ export class MemStorage implements IStorage {
 
   async createShikaku(insertShikaku: InsertShikaku): Promise<Shikaku> {
     const id = randomUUID();
+    // expiresAtはサーバーで自動設定（24時間後）
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+    
     const shikaku: Shikaku = {
       id,
       playerId: insertShikaku.playerId,
@@ -547,7 +549,7 @@ export class MemStorage implements IStorage {
       difficulty: insertShikaku.difficulty,
       assassinName: insertShikaku.assassinName,
       assassinImageUrl: insertShikaku.assassinImageUrl ?? null,
-      expiresAt: insertShikaku.expiresAt,
+      expiresAt,
       completed: false,
       completedAt: null,
       createdAt: new Date(),

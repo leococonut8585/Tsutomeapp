@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTsutomeSchema, insertShurenSchema, insertShihanSchema, insertShikakuSchema } from "@shared/schema";
+import { insertTsutomeSchema, insertShurenSchema, insertShihanSchema, insertShikakuSchema, TsutomeWithLinkSource, LinkSource, calculateShurenBonus, calculateShihanBonus, Tsutome } from "@shared/schema";
 import {
   generateMonsterName,
   generateTrainingName,
@@ -775,7 +775,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { title, deadline, difficulty = "normal" } = req.body;
       
       // AI生成: モンスター名
-      const monsterName = await generateMonsterName(title, difficulty);
+      const monsterName = await generateMonsterName(title, shihan.genre, difficulty);
       
       // AI生成: モンスター画像（オプション）
       let monsterImageUrl = "";
@@ -842,7 +842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       deadline.setHours(23, 59, 59, 999);
       
       // AI生成: モンスター名
-      const monsterName = await generateMonsterName(shuren.title, "normal");
+      const monsterName = await generateMonsterName(shuren.title, shuren.genre, "normal");
       
       // AI生成: モンスター画像（オプション）
       let monsterImageUrl = "";
@@ -977,16 +977,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         assassinImageUrl = "";
       }
 
-      // 24時間後に期限切れ
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
-
       const shikaku = await storage.createShikaku({
         ...validatedData,
         playerId: player.id,
         assassinName,
         assassinImageUrl,
-        expiresAt,
       });
 
       // 画像生成エラーがあった場合は警告フラグを含めてレスポンス
