@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Target } from "lucide-react";
 import { ScrollIcon } from "@/components/icons/japanese-icons";
 import { ShihanCard } from "@/components/shihan-card";
+import { TaskFormDialog } from "@/components/task-form-dialog";
 import { Shihan } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
@@ -151,20 +152,12 @@ export default function ShihanPage() {
         </div>
       )}
 
-      {/* TODO: 作成ダイアログ（後で実装） */}
-      {createDialogOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background p-6 rounded-lg max-w-md w-full">
-            <p className="text-center">師範作成フォームは後で実装予定</p>
-            <Button
-              onClick={() => setCreateDialogOpen(false)}
-              className="w-full mt-4"
-            >
-              閉じる
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* 作成ダイアログ */}
+      <TaskFormDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        taskType="shihan"
+      />
     </div>
   );
 }

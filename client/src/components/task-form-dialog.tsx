@@ -77,6 +77,7 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
       await createShihan.mutateAsync({
         title,
         genre,
+        startDate: new Date(),
         targetDate,
         masterName: "", // AIが生成
         playerId: "", // サーバー側で設定
@@ -85,7 +86,6 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
       await createShikaku.mutateAsync({
         title,
         difficulty,
-        expiresAt: deadline,
         assassinName: "", // AIが生成
         playerId: "", // サーバー側で設定
       });
@@ -228,21 +228,12 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
             </div>
           )}
 
-          {/* 期限 (刺客のみ) */}
+          {/* 期限説明 (刺客のみ) */}
           {taskType === "shikaku" && (
             <div className="space-y-2">
               <Label>緊急期限</Label>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full justify-start text-left font-normal"
-                data-testid="button-select-deadline"
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {deadline ? format(deadline, "PPP", { locale: ja }) : "日付を選択"}
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                緊急任務は3日以内の短期限で設定してください
+              <p className="text-sm text-muted-foreground">
+                刺客任務は自動的に24時間の期限が設定されます
               </p>
             </div>
           )}

@@ -238,6 +238,7 @@ export function useCreateShihan() {
     mutationFn: async (data: Partial<InsertShihan>) => {
       const completeData = {
         ...data,
+        startDate: data.startDate || new Date(),
         targetDate: data.targetDate || new Date(),
         masterName: data.masterName || "", // AIが生成
         playerId: data.playerId || "", // サーバー側で設定
@@ -277,7 +278,6 @@ export function useCreateShikaku() {
     mutationFn: async (data: Partial<InsertShikaku>) => {
       const completeData = {
         ...data,
-        expiresAt: data.expiresAt || new Date(),
         assassinName: data.assassinName || "", // AIが生成
         playerId: data.playerId || "", // サーバー側で設定
       };
