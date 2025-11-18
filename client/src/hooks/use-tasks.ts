@@ -10,12 +10,21 @@ export function useCreateTsutome() {
       const res = await apiRequest("POST", "/api/tsutomes", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tsutomes"] });
-      toast({
-        title: "務メを追加しました",
-        description: "新たな妖怪が出現しました！",
-      });
+      
+      // 画像生成エラーの警告がある場合
+      if (data.warning) {
+        toast({
+          title: "務メを追加しました",
+          description: data.warning,
+        });
+      } else {
+        toast({
+          title: "務メを追加しました",
+          description: "新たな妖怪が出現しました！",
+        });
+      }
     },
     onError: (error) => {
       toast({
@@ -78,12 +87,21 @@ export function useCreateShuren() {
       const res = await apiRequest("POST", "/api/shurens", completeData);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/shurens"] });
-      toast({
-        title: "修練を開始しました",
-        description: "継続は力なり！",
-      });
+      
+      // 画像生成エラーの警告がある場合
+      if (data.warning) {
+        toast({
+          title: "修練を開始しました",
+          description: data.warning,
+        });
+      } else {
+        toast({
+          title: "修練を開始しました",
+          description: "継続は力なり！",
+        });
+      }
     },
     onError: (error) => {
       toast({

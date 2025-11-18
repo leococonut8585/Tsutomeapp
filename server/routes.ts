@@ -186,10 +186,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const monsterName = await generateMonsterName(validatedData.title, validatedData.genre, validatedData.difficulty);
 
       // AI生成: 妖怪画像（オプション、時間がかかる場合はスキップ可能）
-      const monsterImageUrl = await generateImage(
-        `${monsterName}, ${validatedData.genre} themed yokai monster`,
-        "monster"
-      );
+      let monsterImageUrl = "";
+      let imageGenerationWarning = false;
+      
+      try {
+        monsterImageUrl = await generateImage(
+          `${monsterName}, ${validatedData.genre} themed yokai monster`,
+          "monster"
+        );
+        
+        // 空文字列が返ってきた場合は画像生成が失敗
+        if (!monsterImageUrl) {
+          imageGenerationWarning = true;
+          console.warn("妖怪画像の生成に失敗しました。タスクは作成されますが画像なしで保存されます。");
+        }
+      } catch (error) {
+        console.error("妖怪画像生成エラー:", error);
+        imageGenerationWarning = true;
+        monsterImageUrl = "";
+      }
 
       const tsutome = await storage.createTsutome({
         ...validatedData,
@@ -198,7 +213,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         monsterImageUrl,
       });
 
-      res.status(201).json(tsutome);
+      // 画像生成エラーがあった場合は警告フラグを含めてレスポンス
+      const response: any = tsutome;
+      if (imageGenerationWarning) {
+        response.warning = "妖怪画像の生成に失敗しました。タスクは作成されました。";
+      }
+
+      res.status(201).json(response);
     } catch (error) {
       console.error("Error creating tsutome:", error);
       res.status(500).json({ error: "Internal server error" });
@@ -394,10 +415,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const trainingName = await generateTrainingName(validatedData.title, validatedData.genre);
 
       // AI生成: 修練画像（オプション）
-      const trainingImageUrl = await generateImage(
-        `${trainingName}, ${validatedData.genre} martial arts training`,
-        "training"
-      );
+      let trainingImageUrl = "";
+      let imageGenerationWarning = false;
+      
+      try {
+        trainingImageUrl = await generateImage(
+          `${trainingName}, ${validatedData.genre} martial arts training`,
+          "training"
+        );
+        
+        // 空文字列が返ってきた場合は画像生成が失敗
+        if (!trainingImageUrl) {
+          imageGenerationWarning = true;
+          console.warn("修練画像の生成に失敗しました。修練は作成されますが画像なしで保存されます。");
+        }
+      } catch (error) {
+        console.error("修練画像生成エラー:", error);
+        imageGenerationWarning = true;
+        trainingImageUrl = "";
+      }
 
       const shuren = await storage.createShuren({
         ...validatedData,
@@ -406,7 +442,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         trainingImageUrl,
       });
 
-      res.status(201).json(shuren);
+      // 画像生成エラーがあった場合は警告フラグを含めてレスポンス
+      const response: any = shuren;
+      if (imageGenerationWarning) {
+        response.warning = "修練画像の生成に失敗しました。修練は作成されました。";
+      }
+
+      res.status(201).json(response);
     } catch (error) {
       console.error("Error creating shuren:", error);
       res.status(500).json({ error: "Internal server error" });
@@ -519,10 +561,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const masterName = await generateMasterName(validatedData.title, validatedData.genre);
 
       // AI生成: 師範画像（オプション）
-      const masterImageUrl = await generateImage(
-        `${masterName}, wise Japanese martial arts master, ${validatedData.genre} specialist`,
-        "master"
-      );
+      let masterImageUrl = "";
+      let imageGenerationWarning = false;
+      
+      try {
+        masterImageUrl = await generateImage(
+          `${masterName}, wise Japanese martial arts master, ${validatedData.genre} specialist`,
+          "master"
+        );
+        
+        // 空文字列が返ってきた場合は画像生成が失敗
+        if (!masterImageUrl) {
+          imageGenerationWarning = true;
+          console.warn("師範画像の生成に失敗しました。師範は作成されますが画像なしで保存されます。");
+        }
+      } catch (error) {
+        console.error("師範画像生成エラー:", error);
+        imageGenerationWarning = true;
+        masterImageUrl = "";
+      }
 
       const shihan = await storage.createShihan({
         ...validatedData,
@@ -531,7 +588,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         masterImageUrl,
       });
 
-      res.status(201).json(shihan);
+      // 画像生成エラーがあった場合は警告フラグを含めてレスポンス
+      const response: any = shihan;
+      if (imageGenerationWarning) {
+        response.warning = "師範画像の生成に失敗しました。師範は作成されました。";
+      }
+
+      res.status(201).json(response);
     } catch (error) {
       console.error("Error creating shihan:", error);
       res.status(500).json({ error: "Internal server error" });
@@ -619,10 +682,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const assassinName = await generateAssassinName(validatedData.title, validatedData.difficulty);
 
       // AI生成: 刺客画像（オプション）
-      const assassinImageUrl = await generateImage(
-        `${assassinName}, mysterious Japanese ninja assassin, ${validatedData.difficulty} level threat`,
-        "assassin"
-      );
+      let assassinImageUrl = "";
+      let imageGenerationWarning = false;
+      
+      try {
+        assassinImageUrl = await generateImage(
+          `${assassinName}, mysterious Japanese ninja assassin, ${validatedData.difficulty} level threat`,
+          "assassin"
+        );
+        
+        // 空文字列が返ってきた場合は画像生成が失敗
+        if (!assassinImageUrl) {
+          imageGenerationWarning = true;
+          console.warn("刺客画像の生成に失敗しました。刺客は作成されますが画像なしで保存されます。");
+        }
+      } catch (error) {
+        console.error("刺客画像生成エラー:", error);
+        imageGenerationWarning = true;
+        assassinImageUrl = "";
+      }
 
       // 24時間後に期限切れ
       const expiresAt = new Date();
@@ -636,7 +714,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expiresAt,
       });
 
-      res.status(201).json(shikaku);
+      // 画像生成エラーがあった場合は警告フラグを含めてレスポンス
+      const response: any = shikaku;
+      if (imageGenerationWarning) {
+        response.warning = "刺客画像の生成に失敗しました。刺客は作成されました。";
+      }
+
+      res.status(201).json(response);
     } catch (error) {
       console.error("Error creating shikaku:", error);
       res.status(500).json({ error: "Internal server error" });

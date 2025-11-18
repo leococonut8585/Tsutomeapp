@@ -23,8 +23,8 @@ export function ImageWithFallback({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-  // If no src provided, show fallback immediately
-  if (!src) {
+  // If no src provided or empty string, show fallback immediately
+  if (!src || src === "") {
     return <>{fallback}</>;
   }
 

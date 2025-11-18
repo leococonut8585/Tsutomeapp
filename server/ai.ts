@@ -1,4 +1,6 @@
 import OpenAI from "openai";
+import pLimit from "p-limit";
+import pRetry from "p-retry";
 
 // Replit AI Integrations経由でOpenAIを使用
 // 環境変数が設定されていない場合はエラーを出す
@@ -10,6 +12,9 @@ const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "",
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "",
 });
+
+// 画像生成のレート制限 - 同時に1つのみ生成を許可
+const imageGenerationLimit = pLimit(1);
 
 // 妖怪の名前を生成
 export async function generateMonsterName(taskTitle: string, genre: string, difficulty: string): Promise<string> {
@@ -187,48 +192,62 @@ export async function generateStoryText(bossNumber: number, bossName: string): P
 }
 
 // 画像生成（妖怪・修練・師範・刺客・ボス・ストーリー）
-export async function generateImage(prompt: string, type: "monster" | "training" | "master" | "assassin" | "boss" | "story"): Promise<string | null> {
+export async function generateImage(prompt: string, type: "monster" | "training" | "master" | "assassin" | "boss" | "story"): Promise<string> {
   try {
-    // 和風スタイルのベースプロンプト
-    const stylePrompts = {
-      monster: "Japanese yokai monster in traditional sumi-e ink painting style, monochromatic with subtle ink wash effects, minimal detail, traditional Japanese art",
-      training: "Japanese martial arts training scene in traditional sumi-e ink painting style, meditation and practice, minimalist composition, serene atmosphere",
-      master: "Japanese martial arts master in traditional sumi-e ink painting style, wise mentor in classical robes, minimal detail but refined execution",
-      assassin: "Japanese ninja assassin in traditional sumi-e ink painting style, mysterious shadow figure, minimalist ink brush strokes",
-      boss: "Epic Japanese demon boss in traditional sumi-e ink painting style, dramatic ink painting of yokai, sophisticated composition with negative space",
-      story: "Japanese fantasy landscape in traditional sumi-e ink painting style, narrative ink paintings with traditional landscape composition, generous negative space",
-    };
+    // レート制限とリトライでラップ
+    return await imageGenerationLimit(() =>
+      pRetry(
+        async () => {
+          // 和風スタイルのベースプロンプト
+          const stylePrompts = {
+            monster: "Japanese yokai monster in traditional sumi-e ink painting style, monochromatic with subtle ink wash effects, minimal detail, traditional Japanese art",
+            training: "Japanese martial arts training scene in traditional sumi-e ink painting style, meditation and practice, minimalist composition, serene atmosphere",
+            master: "Japanese martial arts master in traditional sumi-e ink painting style, wise mentor in classical robes, minimal detail but refined execution",
+            assassin: "Japanese ninja assassin in traditional sumi-e ink painting style, mysterious shadow figure, minimalist ink brush strokes",
+            boss: "Epic Japanese demon boss in traditional sumi-e ink painting style, dramatic ink painting of yokai, sophisticated composition with negative space",
+            story: "Japanese fantasy landscape in traditional sumi-e ink painting style, narrative ink paintings with traditional landscape composition, generous negative space",
+          };
 
-    const fullPrompt = `${prompt}, ${stylePrompts[type]}`;
+          const fullPrompt = `${prompt}, ${stylePrompts[type]}`;
 
-    const response = await openai.images.generate({
-      model: "gpt-image-1",
-      prompt: fullPrompt,
-      n: 1,
-      size: "512x512",
-      response_format: "b64_json",
-    });
+          const response = await openai.images.generate({
+            model: "gpt-image-1",
+            prompt: fullPrompt,
+            n: 1,
+            size: "512x512",
+            response_format: "b64_json",
+          });
 
-    // response.dataが存在し、配列の最初の要素にb64_jsonが存在するかチェック
-    if (!response.data || response.data.length === 0) {
-      console.error("画像生成エラー: レスポンスにデータがありません");
-      return null;
-    }
+          // response.dataが存在し、配列の最初の要素にb64_jsonが存在するかチェック
+          if (!response.data || response.data.length === 0) {
+            throw new Error("画像生成エラー: レスポンスにデータがありません");
+          }
 
-    const imageData = response.data[0];
-    if (!imageData || !('b64_json' in imageData)) {
-      console.error("画像生成エラー: base64データが取得できませんでした");
-      return null;
-    }
+          const imageData = response.data[0];
+          if (!imageData || !('b64_json' in imageData)) {
+            throw new Error("画像生成エラー: base64データが取得できませんでした");
+          }
 
-    // base64データをdata URLに変換
-    const base64Image = imageData.b64_json as string;
-    const dataUrl = `data:image/png;base64,${base64Image}`;
-    
-    return dataUrl;
+          // base64データをdata URLに変換
+          const base64Image = imageData.b64_json as string;
+          const dataUrl = `data:image/png;base64,${base64Image}`;
+          
+          return dataUrl;
+        },
+        {
+          retries: 2,
+          minTimeout: 1000,
+          maxTimeout: 10000,
+          onFailedAttempt: (error) => {
+            console.warn(`画像生成の試行 ${error.attemptNumber} が失敗しました:`, error.message);
+          },
+        }
+      )
+    );
   } catch (error) {
-    console.error("画像生成エラー:", error);
-    return null;
+    console.error("画像生成がすべてのリトライ後に失敗しました:", error);
+    // エラー時は空文字列を返す（nullではなく）
+    return "";
   }
 }
 
