@@ -153,7 +153,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
       const tsutomes = await storage.getAllTsutomes(player.id);
-      res.json(tsutomes);
+      
+      // Enrich tsutomes with linked source information
+      const enrichedTsutomes = await Promise.all(
+        tsutomes.map(async (tsutome) => {
+          let linkSource = null;
+          let bonusPercentage = 0;
+          
+          if (tsutome.linkedShurenId) {
+            // Get linked Shuren
+            const shuren = await storage.getShuren(tsutome.linkedShurenId);
+            if (shuren) {
+              // Calculate bonus based on continuous days
+              // 5 days = +10%, 10 days = +20%, 15 days = +30%, max +50%
+              const continuousDays = shuren.continuousDays;
+              bonusPercentage = Math.min(50, Math.floor(continuousDays / 5) * 10);
+              
+              linkSource = {
+                type: "shuren",
+                id: shuren.id,
+                name: shuren.trainingName,
+                title: shuren.title,
+                bonus: bonusPercentage,
+                continuousDays: shuren.continuousDays,
+              };
+            }
+          } else if (tsutome.linkedShihanId) {
+            // Get linked Shihan and calculate progress
+            const shihan = await storage.getShihan(tsutome.linkedShihanId);
+            if (shihan) {
+              // Get all completed tsutomes for this shihan to calculate progress
+              const shihanTsutomes = await storage.getTsutomesByShihanId(shihan.id);
+              const completedCount = shihanTsutomes.filter(t => t.completed).length;
+              const totalCount = shihanTsutomes.length || 1;
+              const progress = Math.floor((completedCount / totalCount) * 100);
+              
+              // Calculate bonus based on progress
+              // 20% = +5%, 40% = +10%, 60% = +15%, 80% = +20%, 100% = +25%
+              bonusPercentage = Math.floor(progress / 20) * 5;
+              
+              linkSource = {
+                type: "shihan",
+                id: shihan.id,
+                name: shihan.masterName,
+                title: shihan.title,
+                bonus: bonusPercentage,
+                progress: progress,
+              };
+            }
+          }
+          
+          return {
+            ...tsutome,
+            linkSource,
+          };
+        })
+      );
+      
+      res.json(enrichedTsutomes);
     } catch (error) {
       console.error("Error fetching tsutomes:", error);
       res.status(500).json({ error: "Internal server error" });
@@ -265,6 +322,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let expGain = difficultyExp[tsutome.difficulty] || 100;
       let coinsGain = difficultyCoins[tsutome.difficulty] || 50;
+      
+      // Calculate link bonus
+      let linkBonusMultiplier = 1.0;
+      let bonusInfo = null;
+      
+      if (tsutome.linkedShurenId) {
+        // Get linked Shuren for bonus calculation
+        const shuren = await storage.getShuren(tsutome.linkedShurenId);
+        if (shuren) {
+          // Bonus based on continuous days
+          const continuousDays = shuren.continuousDays;
+          const bonusPercentage = Math.min(50, Math.floor(continuousDays / 5) * 10);
+          linkBonusMultiplier = 1 + (bonusPercentage / 100);
+          
+          bonusInfo = {
+            type: "shuren",
+            name: shuren.trainingName,
+            title: shuren.title,
+            bonus: bonusPercentage,
+            continuousDays: continuousDays,
+          };
+        }
+      } else if (tsutome.linkedShihanId) {
+        // Get linked Shihan for bonus calculation
+        const shihan = await storage.getShihan(tsutome.linkedShihanId);
+        if (shihan) {
+          // Calculate progress
+          const shihanTsutomes = await storage.getTsutomesByShihanId(shihan.id);
+          const completedCount = shihanTsutomes.filter(t => t.completed).length;
+          const totalCount = shihanTsutomes.length || 1;
+          const progress = Math.floor((completedCount / totalCount) * 100);
+          
+          // Bonus based on progress
+          const bonusPercentage = Math.floor(progress / 20) * 5;
+          linkBonusMultiplier = 1 + (bonusPercentage / 100);
+          
+          bonusInfo = {
+            type: "shihan",
+            name: shihan.masterName,
+            title: shihan.title,
+            bonus: bonusPercentage,
+            progress: progress,
+          };
+        }
+      }
+      
+      // Apply link bonus to base rewards
+      expGain = Math.floor(expGain * linkBonusMultiplier);
+      coinsGain = Math.floor(coinsGain * linkBonusMultiplier);
 
       // Job-specific bonuses
       if (player.job === "samurai" && ["exercise", "work"].includes(tsutome.genre)) {
@@ -354,6 +460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           coins: finalCoins,
           levelUp: newLevel > player.level,
           newLevel,
+          bonusInfo: bonusInfo,
         },
       });
     } catch (error) {

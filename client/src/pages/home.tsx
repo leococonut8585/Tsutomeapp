@@ -17,8 +17,8 @@ export default function Home() {
     queryKey: ["/api/player"],
   });
 
-  // 務メ（タスク）一覧取得
-  const { data: tsutomes, isLoading: tsutomesLoading } = useQuery<Tsutome[]>({
+  // 務メ（タスク）一覧取得 - with linked source info
+  const { data: tsutomes, isLoading: tsutomesLoading } = useQuery<any[]>({
     queryKey: ["/api/tsutomes"],
   });
 
@@ -93,6 +93,7 @@ export default function Home() {
                 <TsutomeCard
                   key={tsutome.id}
                   tsutome={tsutome}
+                  linkSource={tsutome.linkSource}
                   onComplete={() => {
                     completeTsutome.mutate(tsutome.id);
                   }}

@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Check } from "lucide-react";
-import { OniMaskIcon, ShurikenIcon } from "./icons/japanese-icons";
+import { Calendar, Check, Link2, Flame } from "lucide-react";
+import { OniMaskIcon, ShurikenIcon, MeditationIcon, ScrollIcon } from "./icons/japanese-icons";
 import { Tsutome } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -12,6 +12,11 @@ interface TsutomeCardProps {
   tsutome: Tsutome;
   onComplete?: () => void;
   onClick?: () => void;
+  linkSource?: {
+    type: "shuren" | "shihan";
+    name: string;
+    bonus?: number; // ボーナス報酬パーセンテージ
+  };
 }
 
 const difficultyStars: Record<string, number> = {
@@ -31,7 +36,7 @@ const genreLabels: Record<string, string> = {
   fun: "遊び",
 };
 
-export function TsutomeCard({ tsutome, onComplete, onClick }: TsutomeCardProps) {
+export function TsutomeCard({ tsutome, onComplete, onClick, linkSource }: TsutomeCardProps) {
   const stars = difficultyStars[tsutome.difficulty] || 3;
   const deadline = new Date(tsutome.deadline);
   const isOverdue = deadline < new Date();
@@ -162,6 +167,30 @@ export function TsutomeCard({ tsutome, onComplete, onClick }: TsutomeCardProps) 
 
           {/* メタ情報 - 横スクロール風配置 */}
           <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide">
+            {/* 連携元の表示 */}
+            {linkSource && (
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-accent/10 border border-accent/30 
+                japanese-shadow text-xs shrink-0" data-testid="link-source">
+                <Link2 className="w-3 h-3 text-accent" />
+                {linkSource.type === "shuren" ? (
+                  <div className="w-3 h-3 text-accent">
+                    <MeditationIcon />
+                  </div>
+                ) : (
+                  <div className="w-3 h-3 text-accent">
+                    <ScrollIcon />
+                  </div>
+                )}
+                <span className="text-accent font-medium">{linkSource.name}</span>
+                {linkSource.bonus && linkSource.bonus > 0 && (
+                  <div className="flex items-center gap-0.5 ml-1">
+                    <Flame className="w-3 h-3 text-exp" />
+                    <span className="text-exp font-bold">+{linkSource.bonus}%</span>
+                  </div>
+                )}
+              </div>
+            )}
+            
             <Badge variant="secondary" className="text-xs shrink-0 japanese-shadow" 
               data-testid="genre-badge">
               {genreLabels[tsutome.genre]}
