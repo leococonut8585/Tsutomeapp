@@ -2,13 +2,13 @@ import OpenAI from "openai";
 
 // Replit AI Integrations経由でOpenAIを使用
 // 環境変数が設定されていない場合はエラーを出す
-if (!process.env.REPLIT_AGENT_API_KEY || !process.env.REPLIT_AGENT_API_BASE_URL) {
-  console.warn("WARNING: Replit AI Integration environment variables not found. AI features may not work.");
+if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY || !process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+  console.warn("WARNING: OpenAI Integration environment variables not found. AI features may not work.");
 }
 
 const openai = new OpenAI({
-  apiKey: process.env.REPLIT_AGENT_API_KEY || "",
-  baseURL: process.env.REPLIT_AGENT_API_BASE_URL || "",
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "",
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "",
 });
 
 // 妖怪の名前を生成
@@ -191,12 +191,12 @@ export async function generateImage(prompt: string, type: "monster" | "training"
   try {
     // 和風スタイルのベースプロンプト
     const stylePrompts = {
-      monster: "Japanese yokai monster in traditional ukiyo-e art style, detailed ink painting, dramatic colors",
-      training: "Japanese martial arts training scene in traditional ukiyo-e art style, serene and powerful",
-      master: "Japanese martial arts master in traditional ukiyo-e art style, wise and powerful presence",
-      assassin: "Japanese ninja assassin in traditional ukiyo-e art style, mysterious and deadly",
-      boss: "Epic Japanese demon boss in traditional ukiyo-e art style, terrifying and majestic",
-      story: "Japanese fantasy landscape in traditional ukiyo-e art style, mystical atmosphere",
+      monster: "Japanese yokai monster in traditional sumi-e ink painting style, monochromatic with subtle ink wash effects, minimal detail, traditional Japanese art",
+      training: "Japanese martial arts training scene in traditional sumi-e ink painting style, meditation and practice, minimalist composition, serene atmosphere",
+      master: "Japanese martial arts master in traditional sumi-e ink painting style, wise mentor in classical robes, minimal detail but refined execution",
+      assassin: "Japanese ninja assassin in traditional sumi-e ink painting style, mysterious shadow figure, minimalist ink brush strokes",
+      boss: "Epic Japanese demon boss in traditional sumi-e ink painting style, dramatic ink painting of yokai, sophisticated composition with negative space",
+      story: "Japanese fantasy landscape in traditional sumi-e ink painting style, narrative ink paintings with traditional landscape composition, generous negative space",
     };
 
     const fullPrompt = `${prompt}, ${stylePrompts[type]}`;
@@ -206,9 +206,26 @@ export async function generateImage(prompt: string, type: "monster" | "training"
       prompt: fullPrompt,
       n: 1,
       size: "512x512",
+      response_format: "b64_json",
     });
 
-    return response.data[0]?.url || null;
+    // response.dataが存在し、配列の最初の要素にb64_jsonが存在するかチェック
+    if (!response.data || response.data.length === 0) {
+      console.error("画像生成エラー: レスポンスにデータがありません");
+      return null;
+    }
+
+    const imageData = response.data[0];
+    if (!imageData || !('b64_json' in imageData)) {
+      console.error("画像生成エラー: base64データが取得できませんでした");
+      return null;
+    }
+
+    // base64データをdata URLに変換
+    const base64Image = imageData.b64_json as string;
+    const dataUrl = `data:image/png;base64,${base64Image}`;
+    
+    return dataUrl;
   } catch (error) {
     console.error("画像生成エラー:", error);
     return null;

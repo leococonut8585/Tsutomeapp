@@ -350,14 +350,24 @@ export class MemStorage implements IStorage {
   async createPlayer(insertPlayer: InsertPlayer): Promise<Player> {
     const id = randomUUID();
     const player: Player = {
-      ...insertPlayer,
       id,
+      name: insertPlayer.name,
+      level: insertPlayer.level ?? 1,
+      exp: insertPlayer.exp ?? 0,
+      hp: insertPlayer.hp ?? 100,
+      maxHp: insertPlayer.maxHp ?? 100,
+      coins: insertPlayer.coins ?? 0,
+      wisdom: insertPlayer.wisdom ?? 10,
+      strength: insertPlayer.strength ?? 10,
+      agility: insertPlayer.agility ?? 10,
+      vitality: insertPlayer.vitality ?? 10,
+      luck: insertPlayer.luck ?? 10,
       // Ensure job system fields have defaults if not provided
       job: insertPlayer.job || "novice",
-      jobLevel: insertPlayer.jobLevel || 1,
-      jobXp: insertPlayer.jobXp || 0,
+      jobLevel: insertPlayer.jobLevel ?? 1,
+      jobXp: insertPlayer.jobXp ?? 0,
       skills: insertPlayer.skills || [],
-      streak: insertPlayer.streak || 0,
+      streak: insertPlayer.streak ?? 0,
       createdAt: new Date(),
     };
     this.players.set(id, player);
@@ -391,8 +401,17 @@ export class MemStorage implements IStorage {
   async createTsutome(insertTsutome: InsertTsutome): Promise<Tsutome> {
     const id = randomUUID();
     const tsutome: Tsutome = {
-      ...insertTsutome,
       id,
+      playerId: insertTsutome.playerId,
+      title: insertTsutome.title,
+      deadline: insertTsutome.deadline,
+      genre: insertTsutome.genre,
+      startDate: insertTsutome.startDate,
+      difficulty: insertTsutome.difficulty,
+      monsterName: insertTsutome.monsterName,
+      monsterImageUrl: insertTsutome.monsterImageUrl ?? null,
+      linkedShurenId: insertTsutome.linkedShurenId ?? null,
+      linkedShihanId: insertTsutome.linkedShihanId ?? null,
       completed: false,
       completedAt: null,
       cancelled: false,
@@ -427,8 +446,16 @@ export class MemStorage implements IStorage {
   async createShuren(insertShuren: InsertShuren): Promise<Shuren> {
     const id = randomUUID();
     const shuren: Shuren = {
-      ...insertShuren,
       id,
+      playerId: insertShuren.playerId,
+      title: insertShuren.title,
+      genre: insertShuren.genre,
+      repeatInterval: insertShuren.repeatInterval,
+      startDate: insertShuren.startDate,
+      dataTitle: insertShuren.dataTitle,
+      dataUnit: insertShuren.dataUnit,
+      trainingName: insertShuren.trainingName,
+      trainingImageUrl: insertShuren.trainingImageUrl ?? null,
       continuousDays: 0,
       totalDays: 0,
       lastCompletedAt: null,
@@ -464,8 +491,14 @@ export class MemStorage implements IStorage {
   async createShihan(insertShihan: InsertShihan): Promise<Shihan> {
     const id = randomUUID();
     const shihan: Shihan = {
-      ...insertShihan,
       id,
+      playerId: insertShihan.playerId,
+      title: insertShihan.title,
+      targetDate: insertShihan.targetDate,
+      genre: insertShihan.genre,
+      startDate: insertShihan.startDate,
+      masterName: insertShihan.masterName,
+      masterImageUrl: insertShihan.masterImageUrl ?? null,
       completed: false,
       completedAt: null,
       createdAt: new Date(),
@@ -498,8 +531,13 @@ export class MemStorage implements IStorage {
   async createShikaku(insertShikaku: InsertShikaku): Promise<Shikaku> {
     const id = randomUUID();
     const shikaku: Shikaku = {
-      ...insertShikaku,
       id,
+      playerId: insertShikaku.playerId,
+      title: insertShikaku.title,
+      difficulty: insertShikaku.difficulty,
+      assassinName: insertShikaku.assassinName,
+      assassinImageUrl: insertShikaku.assassinImageUrl ?? null,
+      expiresAt: insertShikaku.expiresAt,
       completed: false,
       completedAt: null,
       createdAt: new Date(),
@@ -535,8 +573,15 @@ export class MemStorage implements IStorage {
   async createBoss(insertBoss: InsertBoss): Promise<Boss> {
     const id = randomUUID();
     const boss: Boss = {
-      ...insertBoss,
       id,
+      playerId: insertBoss.playerId,
+      bossNumber: insertBoss.bossNumber,
+      bossName: insertBoss.bossName,
+      bossImageUrl: insertBoss.bossImageUrl ?? null,
+      hp: insertBoss.hp,
+      maxHp: insertBoss.maxHp,
+      attackPower: insertBoss.attackPower,
+      challengeStartDate: insertBoss.challengeStartDate ?? null,
       lastAttackDate: null,
       defeated: false,
       defeatedAt: null,
@@ -566,8 +611,11 @@ export class MemStorage implements IStorage {
   async createStory(insertStory: InsertStory): Promise<Story> {
     const id = randomUUID();
     const story: Story = {
-      ...insertStory,
       id,
+      playerId: insertStory.playerId,
+      bossNumber: insertStory.bossNumber,
+      storyText: insertStory.storyText,
+      storyImageUrl: insertStory.storyImageUrl ?? null,
       viewed: false,
       createdAt: new Date(),
     };
@@ -595,8 +643,14 @@ export class MemStorage implements IStorage {
   async createItem(insertItem: InsertItem): Promise<Item> {
     const id = randomUUID();
     const item: Item = {
-      ...insertItem,
       id,
+      name: insertItem.name,
+      description: insertItem.description,
+      itemType: insertItem.itemType,
+      price: insertItem.price,
+      hpRestore: insertItem.hpRestore ?? null,
+      statBoost: insertItem.statBoost ?? null,
+      imageUrl: insertItem.imageUrl ?? null,
       createdAt: new Date(),
     };
     this.items.set(id, item);
@@ -615,8 +669,11 @@ export class MemStorage implements IStorage {
   async addToInventory(insertInventory: InsertInventory): Promise<Inventory> {
     const id = randomUUID();
     const inventory: Inventory = {
-      ...insertInventory,
       id,
+      playerId: insertInventory.playerId,
+      itemId: insertInventory.itemId,
+      quantity: insertInventory.quantity ?? 1,
+      equipped: insertInventory.equipped ?? false,
       createdAt: new Date(),
     };
     this.inventories.set(id, inventory);

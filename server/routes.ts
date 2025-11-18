@@ -14,6 +14,33 @@ import {
 } from "./ai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ============ Image Generation ============
+  app.post("/api/generate-image", async (req, res) => {
+    try {
+      const { prompt, type } = req.body;
+      
+      if (!prompt || !type) {
+        return res.status(400).json({ error: "prompt and type are required" });
+      }
+      
+      const validTypes = ["monster", "training", "master", "assassin", "boss", "story"];
+      if (!validTypes.includes(type)) {
+        return res.status(400).json({ error: "Invalid type. Must be one of: " + validTypes.join(", ") });
+      }
+      
+      const imageUrl = await generateImage(prompt, type);
+      
+      if (!imageUrl) {
+        return res.status(500).json({ error: "Failed to generate image" });
+      }
+      
+      res.json({ imageUrl });
+    } catch (error) {
+      console.error("Error generating image:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // ============ Player ============
   app.get("/api/player", async (req, res) => {
     try {
@@ -448,6 +475,230 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error recording shuren:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ============ Shihan (師範 - Long-term goals) ============
+  app.get("/api/shihans", async (req, res) => {
+    try {
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      const shihans = await storage.getAllShihans(player.id);
+      res.json(shihans);
+    } catch (error) {
+      console.error("Error fetching shihans:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/shihans", async (req, res) => {
+    try {
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // 日付文字列をDateオブジェクトに変換
+      const data = {
+        ...req.body,
+        targetDate: new Date(req.body.targetDate),
+        startDate: new Date(req.body.startDate),
+      };
+
+      const validation = insertShihanSchema.safeParse(data);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Invalid input", details: validation.error });
+      }
+
+      const validatedData = validation.data;
+
+      // AI生成: 師範名
+      const masterName = await generateMasterName(validatedData.title, validatedData.genre);
+
+      // AI生成: 師範画像（オプション）
+      const masterImageUrl = await generateImage(
+        `${masterName}, wise Japanese martial arts master, ${validatedData.genre} specialist`,
+        "master"
+      );
+
+      const shihan = await storage.createShihan({
+        ...validatedData,
+        playerId: player.id,
+        masterName,
+        masterImageUrl,
+      });
+
+      res.status(201).json(shihan);
+    } catch (error) {
+      console.error("Error creating shihan:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/shihans/:id/complete", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const shihan = await storage.getShihan(id);
+      if (!shihan) {
+        return res.status(404).json({ error: "Shihan not found" });
+      }
+
+      if (shihan.completed) {
+        return res.status(400).json({ error: "Goal already completed" });
+      }
+
+      const player = await storage.getPlayer(shihan.playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // 長期目標完了の報酬（大きめ）
+      const expGain = 1000;
+      const coinsGain = 500;
+      const statBonus = 5;
+
+      await storage.updatePlayer(player.id, {
+        exp: player.exp + expGain,
+        coins: player.coins + coinsGain,
+        wisdom: player.wisdom + statBonus,
+        strength: player.strength + statBonus,
+      });
+
+      const updated = await storage.updateShihan(id, {
+        completed: true,
+        completedAt: new Date(),
+      });
+
+      res.json({
+        shihan: updated,
+        rewards: {
+          exp: expGain,
+          coins: coinsGain,
+          statBonus,
+        },
+      });
+    } catch (error) {
+      console.error("Error completing shihan:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ============ Shikaku (刺客 - Urgent tasks) ============
+  app.get("/api/shikakus", async (req, res) => {
+    try {
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      const shikakus = await storage.getAllShikakus(player.id);
+      res.json(shikakus);
+    } catch (error) {
+      console.error("Error fetching shikakus:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/shikakus", async (req, res) => {
+    try {
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      const validation = insertShikakuSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Invalid input", details: validation.error });
+      }
+
+      const validatedData = validation.data;
+
+      // AI生成: 刺客名
+      const assassinName = await generateAssassinName(validatedData.title, validatedData.difficulty);
+
+      // AI生成: 刺客画像（オプション）
+      const assassinImageUrl = await generateImage(
+        `${assassinName}, mysterious Japanese ninja assassin, ${validatedData.difficulty} level threat`,
+        "assassin"
+      );
+
+      // 24時間後に期限切れ
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24);
+
+      const shikaku = await storage.createShikaku({
+        ...validatedData,
+        playerId: player.id,
+        assassinName,
+        assassinImageUrl,
+        expiresAt,
+      });
+
+      res.status(201).json(shikaku);
+    } catch (error) {
+      console.error("Error creating shikaku:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/shikakus/:id/complete", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const shikaku = await storage.getShikaku(id);
+      if (!shikaku) {
+        return res.status(404).json({ error: "Shikaku not found" });
+      }
+
+      if (shikaku.completed) {
+        return res.status(400).json({ error: "Task already completed" });
+      }
+
+      // 期限切れチェック
+      if (new Date() > new Date(shikaku.expiresAt)) {
+        return res.status(400).json({ error: "Task has expired" });
+      }
+
+      const player = await storage.getPlayer(shikaku.playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // 緊急タスク完了の報酬（高報酬）
+      const difficultyMultiplier: Record<string, number> = {
+        easy: 1.5,
+        normal: 2,
+        hard: 3,
+        veryHard: 4,
+        extreme: 5,
+      };
+
+      const multiplier = difficultyMultiplier[shikaku.difficulty] || 2;
+      const expGain = Math.floor(100 * multiplier);
+      const coinsGain = Math.floor(50 * multiplier);
+
+      await storage.updatePlayer(player.id, {
+        exp: player.exp + expGain,
+        coins: player.coins + coinsGain,
+        agility: player.agility + 2, // 刺客タスクは敏捷性を上げる
+      });
+
+      const updated = await storage.updateShikaku(id, {
+        completed: true,
+        completedAt: new Date(),
+      });
+
+      res.json({
+        shikaku: updated,
+        rewards: {
+          exp: expGain,
+          coins: coinsGain,
+          agilityBonus: 2,
+        },
+      });
+    } catch (error) {
+      console.error("Error completing shikaku:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
