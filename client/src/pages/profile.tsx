@@ -4,7 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Brain, Sword, Zap as Lightning, Heart, Sparkles, Calendar, Archive, Briefcase } from "lucide-react";
+import { ArrowLeft, Calendar, Archive, Briefcase } from "lucide-react";
+import { WisdomIcon, KatanaIcon, ThunderIcon, VigorIcon, FortuneIcon } from "@/components/icons/japanese-icons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Player } from "@shared/schema";
 import { useLocation } from "wouter";
@@ -22,11 +23,11 @@ export default function ProfilePage() {
 
   const stats = player
     ? [
-        { name: "知略", value: player.wisdom, icon: Brain, color: "text-chart-3" },
-        { name: "武勇", value: player.strength, icon: Sword, color: "text-chart-1" },
-        { name: "敏捷", value: player.agility, icon: Lightning, color: "text-exp" },
-        { name: "耐久", value: player.vitality, icon: Heart, color: "text-chart-4" },
-        { name: "運気", value: player.luck, icon: Sparkles, color: "text-chart-5" },
+        { name: "知略", value: player.wisdom, icon: WisdomIcon, color: "text-chart-3" },
+        { name: "武勇", value: player.strength, icon: KatanaIcon, color: "text-chart-1" },
+        { name: "敏捷", value: player.agility, icon: ThunderIcon, color: "text-exp" },
+        { name: "耐久", value: player.vitality, icon: VigorIcon, color: "text-chart-4" },
+        { name: "運気", value: player.luck, icon: FortuneIcon, color: "text-chart-5" },
       ]
     : [];
 

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Story } from "@shared/schema";
 import { Scroll, ArrowLeft, ArrowRight } from "lucide-react";
+import { ScrollIcon } from "./icons/japanese-icons";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useEffect } from "react";
@@ -57,8 +58,10 @@ export function StoryViewerDialog({ story, open, onOpenChange }: StoryViewerDial
                 <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
               </div>
             ) : (
-              <div className="aspect-[16/9] bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg flex items-center justify-center">
-                <span className="text-6xl">📜</span>
+              <div className="aspect-[16/9] bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg flex items-center justify-center japanese-shadow">
+                <div className="scale-[3]">
+                  <ScrollIcon />
+                </div>
               </div>
             )}
 

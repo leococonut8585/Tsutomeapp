@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Flame, Calendar } from "lucide-react";
+import { MeditationIcon } from "./icons/japanese-icons";
 import { Shuren } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -67,8 +68,8 @@ export function ShurenCard({ shuren, onComplete, onClick }: ShurenCardProps) {
               </div>
             </div>
           ) : (
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-chart-4/20 to-chart-4/10 flex items-center justify-center">
-              <span className="text-2xl">🧘</span>
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-chart-4/20 to-chart-4/10 flex items-center justify-center japanese-shadow">
+              <MeditationIcon />
             </div>
           )}
         </div>

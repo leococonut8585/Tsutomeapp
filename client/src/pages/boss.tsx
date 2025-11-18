@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Swords, Shield } from "lucide-react";
+import { OniMaskIcon } from "@/components/icons/japanese-icons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Boss, Player } from "@shared/schema";
 import { useLocation } from "wouter";
@@ -76,8 +77,10 @@ export default function BossPage() {
                   </div>
                 </div>
               ) : (
-                <div className="aspect-[4/5] bg-gradient-to-b from-destructive/20 to-destructive/5 flex items-center justify-center">
-                  <span className="text-8xl">👺</span>
+                <div className="aspect-[4/5] bg-gradient-to-b from-destructive/20 to-destructive/5 flex items-center justify-center japanese-shadow-lg">
+                  <div className="scale-[5]">
+                    <OniMaskIcon />
+                  </div>
                 </div>
               )}
             </Card>
