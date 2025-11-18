@@ -33,10 +33,10 @@ export default function ProfilePage() {
   const maxStat = 100;
 
   return (
-    <div className="min-h-screen pb-20 bg-background">
+    <div className="min-h-screen pb-24 bg-background">
       {/* ヘッダー */}
-      <header className="sticky top-0 z-40 bg-card border-b border-card-border shadow-sm">
-        <div className="flex items-center gap-2 px-4 h-14">
+      <header className="sticky top-0 z-40 bg-card border-b border-border">
+        <div className="flex items-center gap-3 px-6 h-16">
           <Button
             size="icon"
             variant="ghost"
@@ -45,12 +45,12 @@ export default function ProfilePage() {
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-xl font-serif font-bold text-primary">記録</h1>
+          <h1 className="text-2xl font-serif font-bold text-primary">記録</h1>
         </div>
       </header>
 
       {/* メインコンテンツ */}
-      <main className="px-4 py-4">
+      <main className="px-6 py-8">
         <Tabs defaultValue="stats" className="space-y-4">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="stats" data-testid="tab-stats">
@@ -61,13 +61,13 @@ export default function ProfilePage() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="stats" className="space-y-4">
+          <TabsContent value="stats" className="space-y-6">
             {isLoading ? (
-              <Skeleton className="h-96 w-full rounded-xl" />
+              <Skeleton className="h-96 w-full rounded-lg" />
             ) : player ? (
               <>
                 {/* プレイヤー情報カード */}
-                <Card className="p-6 space-y-4">
+                <Card className="p-8 space-y-4">
                   {/* 名前とレベル */}
                   <div className="text-center space-y-2">
                     <h2 className="text-2xl font-serif font-bold" data-testid="player-name">

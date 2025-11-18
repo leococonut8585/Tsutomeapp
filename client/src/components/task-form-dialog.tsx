@@ -90,12 +90,12 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md mx-6 p-8 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-serif text-xl">{titleMap[taskType]}</DialogTitle>
+          <DialogTitle className="font-serif text-2xl">{titleMap[taskType]}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6 mt-6">
           {/* タイトル */}
           <div className="space-y-2">
             <Label htmlFor="title">タイトル</Label>
@@ -209,10 +209,10 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
           )}
 
           {/* 送信ボタン */}
-          <div className="flex gap-2 pt-4">
+          <div className="flex gap-3 pt-6">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               className="flex-1"
               onClick={() => onOpenChange(false)}
               data-testid="button-cancel"
@@ -221,6 +221,7 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
             </Button>
             <Button 
               type="submit" 
+              variant="outline"
               className="flex-1" 
               data-testid="button-submit"
               disabled={createTsutome.isPending || createShuren.isPending}

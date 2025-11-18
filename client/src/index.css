@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;700&family=Shippori+Mincho:wght@600;800&family=IBM+Plex+Mono:wght@400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,61 +12,61 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
   
-  /* 和風ベースカラー: クリーム色の和紙 */
-  --background: 40 20% 97%;
-  --foreground: 30 25% 15%;
+  /* ベースカラー（和紙・墨） */
+  --background: 250 20% 97%; /* 和紙の淡いベージュグレー */
+  --foreground: 0 0% 9%; /* 墨黒 */
   
   /* ボーダーとカード */
-  --border: 35 15% 85%;
-  --card: 38 25% 95%;
-  --card-foreground: 30 25% 15%;
-  --card-border: 35 18% 88%;
+  --border: 0 0% 85%; /* 繊細な線 */
+  --card: 60 9% 98%; /* 薄い和紙 */
+  --card-foreground: 0 0% 15%;
+  --card-border: 0 0% 85%;
   
   /* サイドバー (未使用だが定義) */
-  --sidebar: 38 20% 93%;
-  --sidebar-foreground: 30 25% 18%;
-  --sidebar-border: 35 15% 87%;
-  --sidebar-primary: 358 65% 35%;
-  --sidebar-primary-foreground: 358 10% 98%;
-  --sidebar-accent: 35 18% 82%;
-  --sidebar-accent-foreground: 30 25% 20%;
-  --sidebar-ring: 358 65% 35%;
+  --sidebar: 60 9% 98%;
+  --sidebar-foreground: 0 0% 15%;
+  --sidebar-border: 0 0% 85%;
+  --sidebar-primary: 354 50% 25%;
+  --sidebar-primary-foreground: 60 9% 98%;
+  --sidebar-accent: 0 0% 88%;
+  --sidebar-accent-foreground: 0 0% 9%;
+  --sidebar-ring: 354 50% 25%;
   
   /* ポップオーバー */
-  --popover: 38 22% 92%;
-  --popover-foreground: 30 25% 18%;
-  --popover-border: 35 15% 85%;
+  --popover: 60 9% 98%;
+  --popover-foreground: 0 0% 9%;
+  --popover-border: 0 0% 85%;
   
-  /* プライマリ: 深紅 (和風アクセント) */
-  --primary: 358 65% 35%;
-  --primary-foreground: 358 10% 98%;
+  /* プライマリ（深紅・朱印） */
+  --primary: 354 50% 25%; /* 深い朱色 */
+  --primary-foreground: 60 9% 98%;
   
-  /* セカンダリ: 薄い茶色 */
-  --secondary: 35 18% 85%;
-  --secondary-foreground: 30 25% 20%;
+  /* セカンダリ（墨灰） */
+  --secondary: 0 0% 88%; /* 淡い墨 */
+  --secondary-foreground: 0 0% 9%;
   
-  /* ミュート: 薄いベージュ */
-  --muted: 35 20% 88%;
-  --muted-foreground: 30 15% 45%;
+  /* ミュート（繊細なトーン） */
+  --muted: 0 0% 92%;
+  --muted-foreground: 0 0% 40%;
   
-  /* アクセント: 金色がかった黄土色 */
-  --accent: 42 30% 88%;
-  --accent-foreground: 30 25% 20%;
+  /* アクセント（金箔） */
+  --accent: 45 65% 52%; /* 金色 */
+  --accent-foreground: 0 0% 9%;
   
-  /* デストラクティブ: 赤 */
+  /* デストラクティブ（朱赤） */
   --destructive: 0 72% 40%;
   --destructive-foreground: 0 10% 98%;
   
   /* インプット */
-  --input: 35 20% 75%;
-  --ring: 358 65% 35%;
+  --input: 0 0% 85%;
+  --ring: 354 50% 25%;
   
-  /* チャート: 和風5色 */
-  --chart-1: 358 60% 40%; /* 深紅 */
-  --chart-2: 30 50% 45%; /* 茶色 */
-  --chart-3: 240 45% 40%; /* 藍色 */
-  --chart-4: 160 40% 38%; /* 緑青 */
-  --chart-5: 42 70% 48%; /* 金色 */
+  /* チャート系（伝統色） */
+  --chart-1: 0 0% 20%; /* 濃墨 */
+  --chart-2: 354 50% 25%; /* 朱 */
+  --chart-3: 45 65% 52%; /* 金 */
+  --chart-4: 207 90% 25%; /* 藍 */
+  --chart-5: 150 50% 20%; /* 深緑 */
   
   /* フォント */
   --font-sans: "Noto Sans JP", sans-serif;
@@ -213,10 +215,21 @@
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply antialiased bg-background text-foreground;
+    font-family: 'Noto Serif JP', serif;
+    font-weight: 400;
+    line-height: 1.8;
     /* スマホ最適化: スクロールバウンス防止 */
     overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
+  }
+  
+  .font-serif {
+    font-family: 'Shippori Mincho', serif !important;
+  }
+  
+  .font-mono {
+    font-family: 'IBM Plex Mono', monospace !important;
   }
 }
 

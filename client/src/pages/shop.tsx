@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, ShoppingBag, Coins } from "lucide-react";
+import { ArrowLeft, ShoppingBag, Coins, Package, Gem } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Item, Player } from "@shared/schema";
 import { useLocation } from "wouter";
@@ -28,11 +28,11 @@ export default function ShopPage() {
   const equipment = items?.filter((i) => i.itemType === "equipment") || [];
 
   return (
-    <div className="min-h-screen pb-20 bg-background">
+    <div className="min-h-screen pb-24 bg-background">
       {/* ヘッダー */}
-      <header className="sticky top-0 z-40 bg-card border-b border-card-border shadow-sm">
-        <div className="flex items-center justify-between px-4 h-14">
-          <div className="flex items-center gap-2">
+      <header className="sticky top-0 z-40 bg-card border-b border-border">
+        <div className="flex items-center justify-between px-6 h-16">
+          <div className="flex items-center gap-3">
             <Button
               size="icon"
               variant="ghost"
@@ -41,22 +41,22 @@ export default function ShopPage() {
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <h1 className="text-xl font-serif font-bold text-primary">商店</h1>
+            <h1 className="text-2xl font-serif font-bold text-primary">商店</h1>
           </div>
           {player && (
-            <div className="flex items-center gap-2 bg-accent/30 px-3 py-1.5 rounded-lg">
-              <Coins className="w-4 h-4 text-accent-foreground" />
-              <span className="text-sm font-mono font-semibold" data-testid="player-coins">
+            <div className="flex items-center gap-2 px-4 py-2">
+              <Coins className="w-4 h-4 text-accent" />
+              <span className="text-lg font-mono" data-testid="player-coins">
                 {player.coins.toLocaleString()}
               </span>
-              <span className="text-xs text-muted-foreground">両</span>
+              <span className="text-sm text-muted-foreground">両</span>
             </div>
           )}
         </div>
       </header>
 
       {/* メインコンテンツ */}
-      <main className="px-4 py-4">
+      <main className="px-6 py-8">
         <Tabs defaultValue="consumable" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="consumable" data-testid="tab-consumable">
@@ -71,16 +71,16 @@ export default function ShopPage() {
           </TabsList>
 
           {isLoading ? (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Skeleton key={i} className="aspect-square rounded-xl" />
+                <Skeleton key={i} className="aspect-square rounded-lg" />
               ))}
             </div>
           ) : (
             <>
-              <TabsContent value="consumable" className="space-y-3">
+              <TabsContent value="consumable" className="space-y-4">
                 {consumables.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-4">
                     {consumables.map((item) => (
                       <ItemCard 
                         key={item.id} 
@@ -96,9 +96,9 @@ export default function ShopPage() {
                 )}
               </TabsContent>
 
-              <TabsContent value="equipment" className="space-y-3">
+              <TabsContent value="equipment" className="space-y-4">
                 {equipment.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-4">
                     {equipment.map((item) => (
                       <ItemCard 
                         key={item.id} 
@@ -158,7 +158,7 @@ function ItemCard({
       data-testid={`item-card-${item.id}`}
     >
       {/* アイテム画像 */}
-      <div className="aspect-square bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg flex items-center justify-center">
+      <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
         {item.imageUrl ? (
           <img
             src={item.imageUrl}
@@ -167,7 +167,7 @@ function ItemCard({
             data-testid="item-image"
           />
         ) : (
-          <span className="text-3xl">📦</span>
+          <Package className="w-12 h-12 text-muted-foreground" />
         )}
       </div>
 
@@ -220,7 +220,7 @@ function MaterialCard({
       className="p-2 space-y-1.5 hover-elevate active-elevate-2 cursor-pointer"
       data-testid={`material-card-${item.id}`}
     >
-      <div className="aspect-square bg-gradient-to-br from-chart-2/10 to-chart-2/5 rounded-md flex items-center justify-center">
+      <div className="aspect-square bg-muted rounded-md flex items-center justify-center">
         {item.imageUrl ? (
           <img
             src={item.imageUrl}
@@ -228,7 +228,7 @@ function MaterialCard({
             className="w-full h-full object-cover rounded-md"
           />
         ) : (
-          <span className="text-2xl">💎</span>
+          <Gem className="w-8 h-8 text-muted-foreground" />
         )}
       </div>
       <p className="text-[10px] font-semibold text-center line-clamp-1">{item.name}</p>
@@ -244,7 +244,7 @@ function MaterialCard({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="bg-card rounded-xl p-12 text-center border border-dashed border-border">
+    <div className="bg-card rounded-lg p-12 text-center border border-dashed border-border">
       <ShoppingBag className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
       <p className="text-muted-foreground text-sm">{message}</p>
     </div>

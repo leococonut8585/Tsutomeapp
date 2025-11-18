@@ -110,7 +110,7 @@ export default function BossPage() {
                 </div>
                 <div className="h-4 bg-secondary rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-destructive via-destructive to-red-600 transition-all duration-500"
+                    className="h-full bg-gradient-to-r from-destructive via-destructive to-red-600 transition-all duration-700"
                     style={{ width: `${bossHpPercent}%` }}
                     data-testid="boss-hp-bar"
                   />

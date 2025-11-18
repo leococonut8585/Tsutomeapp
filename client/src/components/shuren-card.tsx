@@ -61,7 +61,7 @@ export function ShurenCard({ shuren, onComplete, onClick }: ShurenCardProps) {
                     stroke="currentColor"
                     strokeWidth="3"
                     strokeDasharray={`${(shuren.continuousDays % 30) * 6.28} 188.4`}
-                    className="text-primary transition-all duration-500"
+                    className="text-primary transition-all duration-700"
                   />
                 </svg>
               </div>

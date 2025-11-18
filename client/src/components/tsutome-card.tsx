@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Star, Check } from "lucide-react";
+import { Calendar, Star, Check, Skull } from "lucide-react";
 import { Tsutome } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -71,39 +71,39 @@ export function TsutomeCard({ tsutome, onComplete, onClick }: TsutomeCardProps) 
 
   return (
     <Card
-      className="p-4 hover-elevate active-elevate-2 cursor-pointer transition-all overflow-hidden relative"
+      className="p-6 hover-elevate active-elevate-2 cursor-pointer transition-all duration-700 ease-in-out overflow-hidden relative bg-card border"
       onClick={onClick}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       style={{
         transform: `translateX(${swipeOffset}px)`,
-        transition: isSwiping ? 'none' : 'transform 0.3s ease-out',
+        transition: isSwiping ? 'none' : 'transform 0.7s ease-out',
       }}
       data-testid={`tsutome-card-${tsutome.id}`}
     >
       {/* スワイプ時の背景 */}
       {swipeOffset > 0 && (
         <div 
-          className="absolute inset-0 bg-success/20 flex items-center px-4"
+          className="absolute inset-0 bg-primary/10 flex items-center px-6"
           style={{ opacity: Math.min(swipeOffset / 60, 1) }}
         >
-          <Check className="w-6 h-6 text-success" />
+          <Check className="w-6 h-6 text-primary" />
         </div>
       )}
-      <div className="flex gap-3">
+      <div className="flex gap-4">
         {/* モンスター画像 */}
         <div className="flex-shrink-0">
           {tsutome.monsterImageUrl ? (
             <img
               src={tsutome.monsterImageUrl}
               alt={tsutome.monsterName}
-              className="w-20 h-20 rounded-lg object-cover bg-muted"
+              className="w-16 h-16 rounded-lg object-cover bg-muted"
               data-testid="monster-image"
             />
           ) : (
-            <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-              <span className="text-2xl">👹</span>
+            <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
+              <Skull className="w-8 h-8 text-muted-foreground" />
             </div>
           )}
         </div>
@@ -144,14 +144,15 @@ export function TsutomeCard({ tsutome, onComplete, onClick }: TsutomeCardProps) 
           {onComplete && !tsutome.completed && (
             <Button
               size="sm"
-              className="mt-2 w-full"
+              variant="outline"
+              className="mt-3 w-full"
               onClick={(e) => {
                 e.stopPropagation();
                 onComplete();
               }}
               data-testid="button-complete-task"
             >
-              <Check className="w-4 h-4 mr-1.5" />
+              <Check className="w-4 h-4 mr-2" />
               討伐完了
             </Button>
           )}
