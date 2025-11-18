@@ -649,6 +649,174 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ Task Linking System (連携システム) ============
+  
+  // 師範から務メを生成
+  app.post("/api/shihans/:id/generate-tsutome", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const shihan = await storage.getShihan(id);
+      if (!shihan) {
+        return res.status(404).json({ error: "Shihan not found" });
+      }
+
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      const { title, deadline, difficulty = "normal" } = req.body;
+      
+      // AI生成: モンスター名
+      const monsterName = await generateMonsterName(title, difficulty);
+      
+      // AI生成: モンスター画像（オプション）
+      let monsterImageUrl = "";
+      try {
+        monsterImageUrl = await generateImage(
+          `${monsterName}, Japanese yokai monster, ${difficulty} difficulty`,
+          "monster"
+        );
+      } catch (error) {
+        console.error("Monster image generation error:", error);
+      }
+
+      const tsutome = await storage.createTsutome({
+        playerId: player.id,
+        title,
+        deadline: new Date(deadline),
+        genre: shihan.genre,
+        startDate: new Date(),
+        difficulty,
+        monsterName,
+        monsterImageUrl,
+        linkedShurenId: null,
+        linkedShihanId: shihan.id, // 師範と連携
+      });
+
+      res.status(201).json(tsutome);
+    } catch (error) {
+      console.error("Error generating tsutome from shihan:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // 修練から務メを生成
+  app.post("/api/shurens/:id/generate-tsutome", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const shuren = await storage.getShuren(id);
+      if (!shuren) {
+        return res.status(404).json({ error: "Shuren not found" });
+      }
+
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // 今日の務メがすでに作成されているかチェック
+      const linkedTsutomes = await storage.getTsutomesByShurenId(shuren.id);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const todayTsutome = linkedTsutomes.find(t => {
+        const tsutomeDate = new Date(t.createdAt!);
+        tsutomeDate.setHours(0, 0, 0, 0);
+        return tsutomeDate.getTime() === today.getTime() && !t.cancelled;
+      });
+
+      if (todayTsutome) {
+        return res.status(400).json({ error: "今日の修練タスクはすでに作成されています" });
+      }
+
+      // 期限を今日の23:59に設定
+      const deadline = new Date();
+      deadline.setHours(23, 59, 59, 999);
+      
+      // AI生成: モンスター名
+      const monsterName = await generateMonsterName(shuren.title, "normal");
+      
+      // AI生成: モンスター画像（オプション）
+      let monsterImageUrl = "";
+      try {
+        monsterImageUrl = await generateImage(
+          `${monsterName}, training yokai spirit, daily practice`,
+          "monster"
+        );
+      } catch (error) {
+        console.error("Monster image generation error:", error);
+      }
+
+      const tsutome = await storage.createTsutome({
+        playerId: player.id,
+        title: `【修練】${shuren.title}`,
+        deadline,
+        genre: shuren.genre,
+        startDate: new Date(),
+        difficulty: "easy", // 修練は習慣化が目的なので難易度は低め
+        monsterName,
+        monsterImageUrl,
+        linkedShurenId: shuren.id, // 修練と連携
+        linkedShihanId: null,
+      });
+
+      res.status(201).json(tsutome);
+    } catch (error) {
+      console.error("Error generating tsutome from shuren:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // 連携元の務メ一覧取得
+  app.get("/api/tsutomes/linked/:type/:id", async (req, res) => {
+    try {
+      const { type, id } = req.params;
+      let tsutomes: Tsutome[] = [];
+
+      if (type === "shihan") {
+        tsutomes = await storage.getTsutomesByShihanId(id);
+      } else if (type === "shuren") {
+        tsutomes = await storage.getTsutomesByShurenId(id);
+      } else {
+        return res.status(400).json({ error: "Invalid type. Must be 'shihan' or 'shuren'" });
+      }
+
+      res.json(tsutomes);
+    } catch (error) {
+      console.error("Error fetching linked tsutomes:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // 師範の進捗状況取得
+  app.get("/api/shihans/:id/progress", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const shihan = await storage.getShihan(id);
+      if (!shihan) {
+        return res.status(404).json({ error: "Shihan not found" });
+      }
+
+      const linkedTsutomes = await storage.getTsutomesByShihanId(id);
+      const totalTasks = linkedTsutomes.length;
+      const completedTasks = linkedTsutomes.filter(t => t.completed).length;
+      const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+      res.json({
+        shihan,
+        linkedTasks: {
+          total: totalTasks,
+          completed: completedTasks,
+          progress,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching shihan progress:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // ============ Shikaku (刺客 - Urgent tasks) ============
   app.get("/api/shikakus", async (req, res) => {
     try {

@@ -22,6 +22,8 @@ export interface IStorage {
   // Tsutome (務メ)
   getTsutome(id: string): Promise<Tsutome | undefined>;
   getAllTsutomes(playerId: string): Promise<Tsutome[]>;
+  getTsutomesByShihanId(shihanId: string): Promise<Tsutome[]>;
+  getTsutomesByShurenId(shurenId: string): Promise<Tsutome[]>;
   createTsutome(tsutome: InsertTsutome): Promise<Tsutome>;
   updateTsutome(id: string, updates: Partial<Tsutome>): Promise<Tsutome | undefined>;
   deleteTsutome(id: string): Promise<boolean>;
@@ -396,6 +398,14 @@ export class MemStorage implements IStorage {
 
   async getAllTsutomes(playerId: string): Promise<Tsutome[]> {
     return Array.from(this.tsutomes.values()).filter((t) => t.playerId === playerId);
+  }
+
+  async getTsutomesByShihanId(shihanId: string): Promise<Tsutome[]> {
+    return Array.from(this.tsutomes.values()).filter((t) => t.linkedShihanId === shihanId);
+  }
+
+  async getTsutomesByShurenId(shurenId: string): Promise<Tsutome[]> {
+    return Array.from(this.tsutomes.values()).filter((t) => t.linkedShurenId === shurenId);
   }
 
   async createTsutome(insertTsutome: InsertTsutome): Promise<Tsutome> {
