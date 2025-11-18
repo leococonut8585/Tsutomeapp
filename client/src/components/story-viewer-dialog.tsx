@@ -7,6 +7,7 @@ import { ScrollIcon } from "./icons/japanese-icons";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useEffect } from "react";
+import { ImageWithFallback } from "@/components/image-with-fallback";
 
 interface StoryViewerDialogProps {
   story: Story | null;
@@ -48,22 +49,25 @@ export function StoryViewerDialog({ story, open, onOpenChange }: StoryViewerDial
         <ScrollArea className="h-[60vh] pr-4">
           <div className="space-y-4">
             {/* ストーリー画像 */}
-            {story.storyImageUrl ? (
-              <div className="relative aspect-[16/9] rounded-lg overflow-hidden">
-                <img
-                  src={story.storyImageUrl}
-                  alt={`第${story.bossNumber}章`}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
-              </div>
-            ) : (
-              <div className="aspect-[16/9] bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg flex items-center justify-center japanese-shadow">
-                <div className="scale-[3]">
-                  <ScrollIcon />
-                </div>
-              </div>
-            )}
+            <div className="relative aspect-[16/9] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-primary/10">
+              <ImageWithFallback
+                src={story.storyImageUrl}
+                alt={`第${story.bossNumber}章`}
+                className="w-full h-full object-cover"
+                containerClassName="w-full h-full"
+                loadingClassName="rounded-lg"
+                fallback={
+                  <div className="w-full h-full flex items-center justify-center japanese-shadow">
+                    <div className="scale-[3]">
+                      <ScrollIcon />
+                    </div>
+                  </div>
+                }
+              />
+              {story.storyImageUrl && (
+                <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent pointer-events-none" />
+              )}
+            </div>
 
             {/* ストーリーテキスト */}
             <div className="space-y-3 px-2">
@@ -75,16 +79,14 @@ export function StoryViewerDialog({ story, open, onOpenChange }: StoryViewerDial
             </div>
 
             {/* ボス情報 */}
-            {story.bossId && (
-              <div className="mt-6 p-4 bg-card rounded-lg border border-card-border">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs text-muted-foreground">討伐した大敵</span>
-                </div>
-                <p className="font-serif font-bold text-primary">
-                  第{story.bossNumber}の大敵
-                </p>
+            <div className="mt-6 p-4 bg-card rounded-lg border border-card-border">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs text-muted-foreground">討伐した大敵</span>
               </div>
-            )}
+              <p className="font-serif font-bold text-primary">
+                第{story.bossNumber}の大敵
+              </p>
+            </div>
           </div>
         </ScrollArea>
 

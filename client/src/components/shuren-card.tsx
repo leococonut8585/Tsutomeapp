@@ -6,6 +6,7 @@ import { MeditationIcon } from "./icons/japanese-icons";
 import { Shuren } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
+import { ImageWithFallback } from "./image-with-fallback";
 
 interface ShurenCardProps {
   shuren: Shuren;
@@ -34,44 +35,42 @@ export function ShurenCard({ shuren, onComplete, onClick }: ShurenCardProps) {
       <div className="flex gap-3 items-center">
         {/* 修練画像 */}
         <div className="flex-shrink-0 relative">
-          {shuren.trainingImageUrl ? (
-            <div className="relative">
-              <img
-                src={shuren.trainingImageUrl}
-                alt={shuren.trainingName}
-                className="w-16 h-16 rounded-full object-cover bg-muted ring-2 ring-primary/20"
-                data-testid="training-image"
-              />
-              {/* 継続日数のリング */}
-              <div className="absolute -inset-1">
-                <svg className="w-full h-full -rotate-90">
-                  <circle
-                    cx="50%"
-                    cy="50%"
-                    r="30"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    className="text-muted"
-                  />
-                  <circle
-                    cx="50%"
-                    cy="50%"
-                    r="30"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeDasharray={`${(shuren.continuousDays % 30) * 6.28} 188.4`}
-                    className="text-primary transition-all duration-700"
-                  />
-                </svg>
+          <ImageWithFallback
+            src={shuren.trainingImageUrl}
+            alt={shuren.trainingName}
+            className="w-16 h-16 rounded-full object-cover bg-muted ring-2 ring-primary/20"
+            containerClassName="relative"
+            fallback={
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-chart-4/20 to-chart-4/10 flex items-center justify-center japanese-shadow">
+                <MeditationIcon />
               </div>
-            </div>
-          ) : (
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-chart-4/20 to-chart-4/10 flex items-center justify-center japanese-shadow">
-              <MeditationIcon />
-            </div>
-          )}
+            }
+            testId="training-image"
+          />
+          {/* 継続日数のリング */}
+          <div className="absolute -inset-1 pointer-events-none">
+            <svg className="w-full h-full -rotate-90">
+              <circle
+                cx="50%"
+                cy="50%"
+                r="30"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                className="text-muted"
+              />
+              <circle
+                cx="50%"
+                cy="50%"
+                r="30"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeDasharray={`${(shuren.continuousDays % 30) * 6.28} 188.4`}
+                className="text-primary transition-all duration-700"
+              />
+            </svg>
+          </div>
         </div>
 
         {/* コンテンツ */}

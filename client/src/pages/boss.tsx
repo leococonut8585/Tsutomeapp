@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Boss, Player } from "@shared/schema";
 import { useLocation } from "wouter";
 import { useAttackBoss } from "@/hooks/use-tasks";
+import { ImageWithFallback } from "@/components/image-with-fallback";
 
 export default function BossPage() {
   const [, setLocation] = useLocation();
@@ -58,31 +59,32 @@ export default function BossPage() {
           <div className="space-y-4">
             {/* ボス画像カード */}
             <Card className="overflow-hidden">
-              {currentBoss.bossImageUrl ? (
-                <div className="relative aspect-[4/5] bg-gradient-to-b from-destructive/20 to-destructive/5">
-                  <img
-                    src={currentBoss.bossImageUrl}
-                    alt={currentBoss.bossName}
-                    className="w-full h-full object-cover"
-                    data-testid="boss-image"
-                  />
-                  {/* ボス名オーバーレイ */}
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-                    <h2
-                      className="text-2xl font-serif font-bold text-white text-center"
-                      data-testid="boss-name"
-                    >
-                      {currentBoss.bossName}
-                    </h2>
-                  </div>
+              <div className="relative aspect-[4/5] bg-gradient-to-b from-destructive/20 to-destructive/5">
+                <ImageWithFallback
+                  src={currentBoss.bossImageUrl}
+                  alt={currentBoss.bossName}
+                  className="w-full h-full object-cover"
+                  containerClassName="w-full h-full"
+                  loadingClassName="rounded-none"
+                  testId="boss-image"
+                  fallback={
+                    <div className="w-full h-full flex items-center justify-center japanese-shadow-lg">
+                      <div className="scale-[5]">
+                        <OniMaskIcon />
+                      </div>
+                    </div>
+                  }
+                />
+                {/* ボス名オーバーレイ */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
+                  <h2
+                    className="text-2xl font-serif font-bold text-white text-center"
+                    data-testid="boss-name"
+                  >
+                    {currentBoss.bossName}
+                  </h2>
                 </div>
-              ) : (
-                <div className="aspect-[4/5] bg-gradient-to-b from-destructive/20 to-destructive/5 flex items-center justify-center japanese-shadow-lg">
-                  <div className="scale-[5]">
-                    <OniMaskIcon />
-                  </div>
-                </div>
-              )}
+              </div>
             </Card>
 
             {/* ボスステータス */}

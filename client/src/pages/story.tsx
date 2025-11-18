@@ -8,6 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Story } from "@shared/schema";
 import { useLocation } from "wouter";
 import { StoryViewerDialog } from "@/components/story-viewer-dialog";
+import { ImageWithFallback } from "@/components/image-with-fallback";
+import { ScrollIcon } from "@/components/icons/japanese-icons";
 
 export default function StoryPage() {
   const [, setLocation] = useLocation();
@@ -97,27 +99,30 @@ function StoryCard({ story, onView }: { story: Story; onView: (story: Story) => 
     >
       <div className="flex flex-col">
         {/* ストーリー画像 */}
-        {story.storyImageUrl ? (
-          <div className="relative aspect-[16/9] bg-gradient-to-b from-primary/10 to-primary/5">
-            <img
-              src={story.storyImageUrl}
-              alt={`第${story.bossNumber}章`}
-              className="w-full h-full object-cover"
-              data-testid="story-image"
-            />
-            {!story.viewed && (
-              <div className="absolute top-2 right-2">
-                <Badge variant="destructive" className="text-xs">
-                  未読
-                </Badge>
+        <div className="relative aspect-[16/9] bg-gradient-to-b from-primary/10 to-primary/5">
+          <ImageWithFallback
+            src={story.storyImageUrl}
+            alt={`第${story.bossNumber}章`}
+            className="w-full h-full object-cover"
+            containerClassName="w-full h-full"
+            loadingClassName="rounded-none"
+            testId="story-image"
+            fallback={
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="scale-[3]">
+                  <ScrollIcon />
+                </div>
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="aspect-[16/9] bg-gradient-to-b from-primary/10 to-primary/5 flex items-center justify-center">
-            <span className="text-4xl">📜</span>
-          </div>
-        )}
+            }
+          />
+          {!story.viewed && (
+            <div className="absolute top-2 right-2">
+              <Badge variant="destructive" className="text-xs">
+                未読
+              </Badge>
+            </div>
+          )}
+        </div>
 
         {/* ストーリー内容 */}
         <div className="p-4 space-y-2">

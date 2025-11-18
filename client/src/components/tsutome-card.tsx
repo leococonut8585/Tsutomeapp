@@ -6,6 +6,7 @@ import { Tsutome } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
 import { useState, useRef } from "react";
+import { ImageWithFallback } from "./image-with-fallback";
 
 interface TsutomeCardProps {
   tsutome: Tsutome;
@@ -116,20 +117,21 @@ export function TsutomeCard({ tsutome, onComplete, onClick }: TsutomeCardProps) 
             <div className="absolute -inset-1 bg-gradient-to-br from-foreground/20 to-foreground/10 
               japanese-shadow transform rotate-1" />
             
-            {tsutome.monsterImageUrl ? (
-              <img
-                src={tsutome.monsterImageUrl}
-                alt={tsutome.monsterName}
-                className="relative w-16 h-16 object-cover bg-muted border-2 border-foreground/30 
-                  japanese-shadow"
-                data-testid="monster-image"
-              />
-            ) : (
-              <div className="relative w-16 h-16 bg-muted flex items-center justify-center 
-                border-2 border-foreground/30 japanese-shadow">
-                <OniMaskIcon />
-              </div>
-            )}
+            <ImageWithFallback
+              src={tsutome.monsterImageUrl}
+              alt={tsutome.monsterName}
+              className="relative w-16 h-16 object-cover bg-muted border-2 border-foreground/30 
+                japanese-shadow"
+              containerClassName="relative w-16 h-16"
+              loadingClassName="japanese-shadow"
+              fallback={
+                <div className="relative w-16 h-16 bg-muted flex items-center justify-center 
+                  border-2 border-foreground/30 japanese-shadow">
+                  <OniMaskIcon />
+                </div>
+              }
+              testId="monster-image"
+            />
             
             {/* 難易度バッジ（手裏剣風） */}
             <div className="absolute -bottom-2 -right-2 w-6 h-6 rounded-full 
