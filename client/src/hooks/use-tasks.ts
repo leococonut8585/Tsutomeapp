@@ -231,3 +231,81 @@ export function useChangeJob() {
     },
   });
 }
+
+// 師範作成
+export function useCreateShihan() {
+  return useMutation({
+    mutationFn: async (data: Partial<InsertShihan>) => {
+      const completeData = {
+        ...data,
+        targetDate: data.targetDate || new Date(),
+        masterName: data.masterName || "", // AIが生成
+        playerId: data.playerId || "", // サーバー側で設定
+      };
+      const res = await apiRequest("POST", "/api/shihans", completeData);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/shihans"] });
+      
+      // 画像生成エラーの警告がある場合
+      if (data.warning) {
+        toast({
+          title: "師範の教えを設定しました",
+          description: data.warning,
+        });
+      } else {
+        toast({
+          title: "師範の教えを設定しました",
+          description: "長期目標に向かって精進しましょう！",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "エラー",
+        description: "師範の設定に失敗しました",
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+// 刺客作成
+export function useCreateShikaku() {
+  return useMutation({
+    mutationFn: async (data: Partial<InsertShikaku>) => {
+      const completeData = {
+        ...data,
+        expiresAt: data.expiresAt || new Date(),
+        assassinName: data.assassinName || "", // AIが生成
+        playerId: data.playerId || "", // サーバー側で設定
+      };
+      const res = await apiRequest("POST", "/api/shikakus", completeData);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/shikakus"] });
+      
+      // 画像生成エラーの警告がある場合
+      if (data.warning) {
+        toast({
+          title: "刺客が現れました",
+          description: data.warning,
+        });
+      } else {
+        toast({
+          title: "刺客が現れました",
+          description: "緊急任務を速やかに完了してください！",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "エラー",
+        description: "刺客の設定に失敗しました",
+        variant: "destructive",
+      });
+    },
+  });
+}

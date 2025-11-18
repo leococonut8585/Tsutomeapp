@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { ja } from "date-fns/locale";
-import { useCreateTsutome, useCreateShuren } from "@/hooks/use-tasks";
+import { useCreateTsutome, useCreateShuren, useCreateShihan, useCreateShikaku } from "@/hooks/use-tasks";
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -40,9 +40,12 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
   const [difficulty, setDifficulty] = useState("normal");
   const [deadline, setDeadline] = useState<Date>(addDays(new Date(), 7));
   const [repeatInterval, setRepeatInterval] = useState(1);
+  const [targetDate, setTargetDate] = useState<Date>(addDays(new Date(), 365)); // 師範用（1年後）
 
   const createTsutome = useCreateTsutome();
   const createShuren = useCreateShuren();
+  const createShihan = useCreateShihan();
+  const createShikaku = useCreateShikaku();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +73,22 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
         trainingName: "", // AIが生成
         playerId: "", // サーバー側で設定
       });
+    } else if (taskType === "shihan") {
+      await createShihan.mutateAsync({
+        title,
+        genre,
+        targetDate,
+        masterName: "", // AIが生成
+        playerId: "", // サーバー側で設定
+      });
+    } else if (taskType === "shikaku") {
+      await createShikaku.mutateAsync({
+        title,
+        difficulty,
+        expiresAt: deadline,
+        assassinName: "", // AIが生成
+        playerId: "", // サーバー側で設定
+      });
     }
 
     // フォームをリセット
@@ -78,6 +97,7 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
     setDifficulty("normal");
     setDeadline(addDays(new Date(), 7));
     setRepeatInterval(1);
+    setTargetDate(addDays(new Date(), 365));
     onOpenChange(false);
   };
 
@@ -200,10 +220,29 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
                 data-testid="button-select-target-date"
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {deadline ? format(deadline, "PPP", { locale: ja }) : "日付を選択"}
+                {targetDate ? format(targetDate, "PPP", { locale: ja }) : "日付を選択"}
               </Button>
               <p className="text-xs text-muted-foreground">
                 1年以上先の長期目標を設定できます
+              </p>
+            </div>
+          )}
+
+          {/* 期限 (刺客のみ) */}
+          {taskType === "shikaku" && (
+            <div className="space-y-2">
+              <Label>緊急期限</Label>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start text-left font-normal"
+                data-testid="button-select-deadline"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {deadline ? format(deadline, "PPP", { locale: ja }) : "日付を選択"}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                緊急任務は3日以内の短期限で設定してください
               </p>
             </div>
           )}
@@ -224,9 +263,9 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
               variant="outline"
               className="flex-1" 
               data-testid="button-submit"
-              disabled={createTsutome.isPending || createShuren.isPending}
+              disabled={createTsutome.isPending || createShuren.isPending || createShihan.isPending || createShikaku.isPending}
             >
-              {createTsutome.isPending || createShuren.isPending ? "作成中..." : "作成"}
+              {(createTsutome.isPending || createShuren.isPending || createShihan.isPending || createShikaku.isPending) ? "作成中..." : "作成"}
             </Button>
           </div>
         </form>
