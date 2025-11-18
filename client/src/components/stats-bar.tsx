@@ -38,8 +38,8 @@ export function StatsBar({ level, exp, expToNext, hp, maxHp, coins }: StatsBarPr
         {/* 朱印スタンプ風レベル表示（高品質版） */}
         <div className="relative inline-block">
           {/* 階位ラベル（上に配置） */}
-          <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs text-muted-foreground 
-            font-serif whitespace-nowrap">
+          <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-sm text-primary 
+            font-serif font-bold whitespace-nowrap">
             階位
           </span>
           
