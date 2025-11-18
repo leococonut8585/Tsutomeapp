@@ -25,11 +25,15 @@ export default function Home() {
   const activeTsutomes = tsutomes?.filter((t) => !t.completed && !t.cancelled) || [];
 
   return (
-    <div className="min-h-screen pb-24 bg-background">
+    <div className="min-h-screen pb-24 bg-background pattern-seigaiha">
       {/* ヘッダー */}
-      <header className="sticky top-0 z-40 bg-card border-b border-border">
-        <div className="flex items-center justify-between px-6 h-16">
-          <h1 className="text-3xl font-serif font-bold text-primary">務メ討魔録</h1>
+      <header className="sticky top-0 z-40 bg-card border-b-4 border-foreground washi-texture">
+        <div className="flex items-center justify-between px-6 h-20 relative">
+          <h1 className="text-5xl font-serif font-black text-primary brush-stroke tracking-wider">
+            務メ討魔録
+          </h1>
+          {/* 和風装飾線 */}
+          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-50" />
           <div className="flex items-center gap-2">
             <Button size="icon" variant="ghost" data-testid="button-settings">
               <Settings className="w-5 h-5" />

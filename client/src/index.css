@@ -4,7 +4,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE - 和風カラーパレット */
+/* LIGHT MODE - 本格的日本伝統色 */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
@@ -12,68 +12,75 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
   
+  /* 日本伝統色定義 */
+  --indigo-jp: 214 42% 31%; /* 藍色 #234A87 */
+  --vermillion-jp: 0 72% 51%; /* 朱色 #CF2E2E */
+  --sumi-jp: 0 0% 12%; /* 墨色 #1E1E1E */
+  --gold-jp: 45 65% 43%; /* 金色 #C59837 */
+  --washi-jp: 38 24% 93%; /* 和紙色 #F3EDE1 */
+  
   /* ベースカラー（和紙・墨） */
-  --background: 250 20% 97%; /* 和紙の淡いベージュグレー */
-  --foreground: 0 0% 9%; /* 墨黒 */
+  --background: 38 24% 93%; /* 和紙色 */
+  --foreground: 0 0% 12%; /* 墨色 */
   
   /* ボーダーとカード */
-  --border: 0 0% 85%; /* 繊細な線 */
-  --card: 60 9% 98%; /* 薄い和紙 */
-  --card-foreground: 0 0% 15%;
-  --card-border: 0 0% 85%;
+  --border: 0 0% 25%; /* 墨線 */
+  --card: 38 18% 95%; /* 薄い和紙 */
+  --card-foreground: 0 0% 12%;
+  --card-border: 0 0% 30%;
   
   /* サイドバー (未使用だが定義) */
-  --sidebar: 60 9% 98%;
-  --sidebar-foreground: 0 0% 15%;
-  --sidebar-border: 0 0% 85%;
-  --sidebar-primary: 354 50% 25%;
-  --sidebar-primary-foreground: 60 9% 98%;
+  --sidebar: 38 18% 95%;
+  --sidebar-foreground: 0 0% 12%;
+  --sidebar-border: 0 0% 30%;
+  --sidebar-primary: 0 72% 51%;
+  --sidebar-primary-foreground: 38 24% 93%;
   --sidebar-accent: 0 0% 88%;
-  --sidebar-accent-foreground: 0 0% 9%;
-  --sidebar-ring: 354 50% 25%;
+  --sidebar-accent-foreground: 0 0% 12%;
+  --sidebar-ring: 0 72% 51%;
   
   /* ポップオーバー */
-  --popover: 60 9% 98%;
-  --popover-foreground: 0 0% 9%;
-  --popover-border: 0 0% 85%;
+  --popover: 38 18% 95%;
+  --popover-foreground: 0 0% 12%;
+  --popover-border: 0 0% 30%;
   
-  /* プライマリ（深紅・朱印） */
-  --primary: 354 50% 25%; /* 深い朱色 */
-  --primary-foreground: 60 9% 98%;
+  /* プライマリ（朱色） */
+  --primary: 0 72% 51%; /* 朱色 */
+  --primary-foreground: 38 24% 93%;
   
   /* セカンダリ（墨灰） */
-  --secondary: 0 0% 88%; /* 淡い墨 */
-  --secondary-foreground: 0 0% 9%;
+  --secondary: 0 0% 75%; /* 淡墨 */
+  --secondary-foreground: 0 0% 12%;
   
   /* ミュート（繊細なトーン） */
-  --muted: 0 0% 92%;
-  --muted-foreground: 0 0% 40%;
+  --muted: 0 0% 85%;
+  --muted-foreground: 0 0% 35%;
   
   /* アクセント（金箔） */
-  --accent: 45 65% 52%; /* 金色 */
-  --accent-foreground: 0 0% 9%;
+  --accent: 45 65% 43%; /* 金色 */
+  --accent-foreground: 0 0% 12%;
   
-  /* デストラクティブ（朱赤） */
-  --destructive: 0 72% 40%;
-  --destructive-foreground: 0 10% 98%;
+  /* デストラクティブ（深紅） */
+  --destructive: 0 80% 45%;
+  --destructive-foreground: 38 24% 93%;
   
   /* インプット */
-  --input: 0 0% 85%;
-  --ring: 354 50% 25%;
+  --input: 0 0% 30%;
+  --ring: 0 72% 51%;
   
   /* チャート系（伝統色） */
-  --chart-1: 0 0% 20%; /* 濃墨 */
-  --chart-2: 354 50% 25%; /* 朱 */
-  --chart-3: 45 65% 52%; /* 金 */
-  --chart-4: 207 90% 25%; /* 藍 */
-  --chart-5: 150 50% 20%; /* 深緑 */
+  --chart-1: 214 42% 31%; /* 藍 */
+  --chart-2: 0 72% 51%; /* 朱 */
+  --chart-3: 45 65% 43%; /* 金 */
+  --chart-4: 0 0% 25%; /* 墨 */
+  --chart-5: 150 30% 35%; /* 松葉 */
   
   /* フォント */
   --font-sans: "Noto Sans JP", sans-serif;
   --font-serif: "Zen Antique", serif;
   --font-mono: "Roboto Mono", monospace;
   
-  --radius: .75rem;
+  --radius: 0;
   
   /* シャドウ: 和風は控えめ */
   --shadow-2xs: 0px 1px 2px 0px hsl(30 15% 30% / 0.05);
@@ -230,6 +237,90 @@
   
   .font-mono {
     font-family: 'IBM Plex Mono', monospace !important;
+  }
+
+  /* 日本伝統和柄パターン */
+  
+  /* 青海波（波模様） */
+  .pattern-seigaiha {
+    background-image: url("data:image/svg+xml,%3Csvg width='100' height='50' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='seigaiha' x='0' y='0' width='100' height='50' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='0' cy='50' r='40' fill='none' stroke='%23234A87' stroke-width='1' opacity='0.3'/%3E%3Ccircle cx='50' cy='50' r='40' fill='none' stroke='%23234A87' stroke-width='1' opacity='0.3'/%3E%3Ccircle cx='100' cy='50' r='40' fill='none' stroke='%23234A87' stroke-width='1' opacity='0.3'/%3E%3Ccircle cx='0' cy='0' r='40' fill='none' stroke='%23234A87' stroke-width='1' opacity='0.3'/%3E%3Ccircle cx='50' cy='0' r='40' fill='none' stroke='%23234A87' stroke-width='1' opacity='0.3'/%3E%3Ccircle cx='100' cy='0' r='40' fill='none' stroke='%23234A87' stroke-width='1' opacity='0.3'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23seigaiha)'/%3E%3C/svg%3E");
+    background-size: 200px 100px;
+  }
+
+  /* 麻の葉模様 */
+  .pattern-asanoha {
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='asanoha' x='0' y='0' width='60' height='60' patternUnits='userSpaceOnUse'%3E%3Cpath d='M30,0 L0,30 L30,60 L60,30 Z M15,15 L30,30 L45,15 M15,45 L30,30 L45,45 M0,30 L30,30 L60,30 M30,0 L30,30 L30,60' stroke='%23C59837' stroke-width='0.5' fill='none' opacity='0.2'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23asanoha)'/%3E%3C/svg%3E");
+    background-size: 120px 120px;
+  }
+
+  /* 市松模様 */
+  .pattern-ichimatsu {
+    background-image: repeating-conic-gradient(#1E1E1E 0% 25%, transparent 0% 50%) 50% / 20px 20px;
+    opacity: 0.03;
+  }
+
+  /* 墨絵グラデーション */
+  .sumi-gradient {
+    background: linear-gradient(180deg, 
+      rgba(30,30,30,0) 0%, 
+      rgba(30,30,30,0.05) 20%,
+      rgba(30,30,30,0.1) 80%,
+      rgba(30,30,30,0.2) 100%);
+  }
+
+  /* 和紙テクスチャ */
+  .washi-texture {
+    position: relative;
+  }
+  .washi-texture::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(30,30,30,0.02) 2px,
+      rgba(30,30,30,0.02) 4px
+    );
+    pointer-events: none;
+  }
+
+  /* 障子グリッド */
+  .shoji-grid {
+    position: relative;
+  }
+  .shoji-grid::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: 
+      linear-gradient(to right, rgba(30,30,30,0.1) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(30,30,30,0.1) 1px, transparent 1px);
+    background-size: 33.33% 25%;
+    pointer-events: none;
+  }
+
+  /* 縦書きテキスト */
+  .vertical-text {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+  }
+
+  /* 筆文字エフェクト */
+  .brush-stroke {
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-shadow: 2px 2px 4px rgba(30,30,30,0.3);
+    -webkit-text-stroke: 1px rgba(30,30,30,0.2);
+  }
+
+  /* 朱印スタンプ */
+  .seal-stamp {
+    @apply border-2 border-primary flex items-center justify-center;
+    border-radius: 50%;
+    transform: rotate(3deg);
+    box-shadow: 0 2px 4px rgba(207,46,46,0.2);
   }
 }
 

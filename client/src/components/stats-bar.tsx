@@ -14,21 +14,30 @@ export function StatsBar({ level, exp, expToNext, hp, maxHp, coins }: StatsBarPr
   const hpPercent = (hp / maxHp) * 100;
   const expPercent = (exp / expToNext) * 100;
 
+  // 漢数字変換
+  const kanjiNumbers = ["零", "壱", "弐", "参", "肆", "伍", "陸", "漆", "捌", "玖", "拾"];
+  const levelKanji = level <= 10 ? kanjiNumbers[level] : level.toString();
+
   return (
-    <div className="bg-card rounded-lg p-6 space-y-4 border border-border">
+    <div className="bg-card p-6 space-y-4 border-y-2 border-foreground washi-texture">
       {/* レベルとコイン */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">Lv</span>
-          <span className="text-3xl font-bold font-serif text-primary" data-testid="player-level">
-            {level}
+        {/* 朱印スタンプ風レベル表示 */}
+        <div className="relative">
+          <div className="w-20 h-20 seal-stamp">
+            <span className="text-2xl font-black text-primary" data-testid="player-level">
+              {levelKanji}
+            </span>
+          </div>
+          <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground">
+            階位
           </span>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2">
+        <div className="flex items-center gap-2 px-4 py-2 border-2 border-foreground bg-background/50">
           <span className="text-xl font-mono text-foreground" data-testid="player-coins">
             {coins.toLocaleString()}
           </span>
-          <span className="text-sm text-muted-foreground">両</span>
+          <span className="text-sm text-foreground font-serif">両</span>
         </div>
       </div>
 

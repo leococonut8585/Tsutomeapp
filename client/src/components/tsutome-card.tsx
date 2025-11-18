@@ -70,8 +70,8 @@ export function TsutomeCard({ tsutome, onComplete, onClick }: TsutomeCardProps) 
   };
 
   return (
-    <Card
-      className="p-6 hover-elevate active-elevate-2 cursor-pointer transition-all duration-700 ease-in-out overflow-hidden relative bg-card border"
+    <div
+      className="relative bg-card border-y-4 border-foreground hover-elevate active-elevate-2 cursor-pointer transition-all duration-700 ease-in-out overflow-hidden washi-texture"
       onClick={onClick}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -82,6 +82,10 @@ export function TsutomeCard({ tsutome, onComplete, onClick }: TsutomeCardProps) 
       }}
       data-testid={`tsutome-card-${tsutome.id}`}
     >
+      {/* 巻物風の装飾線 */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-foreground" />
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-foreground" />
+      
       {/* スワイプ時の背景 */}
       {swipeOffset > 0 && (
         <div 
@@ -91,19 +95,20 @@ export function TsutomeCard({ tsutome, onComplete, onClick }: TsutomeCardProps) 
           <Check className="w-6 h-6 text-primary" />
         </div>
       )}
-      <div className="flex gap-4">
-        {/* モンスター画像 */}
+      
+      <div className="flex gap-4 p-6">
+        {/* モンスター画像 - 直角にする */}
         <div className="flex-shrink-0">
           {tsutome.monsterImageUrl ? (
             <img
               src={tsutome.monsterImageUrl}
               alt={tsutome.monsterName}
-              className="w-16 h-16 rounded-lg object-cover bg-muted"
+              className="w-16 h-16 object-cover bg-muted border-2 border-foreground"
               data-testid="monster-image"
             />
           ) : (
-            <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
-              <Skull className="w-8 h-8 text-muted-foreground" />
+            <div className="w-16 h-16 bg-muted flex items-center justify-center border-2 border-foreground">
+              <Skull className="w-8 h-8 text-foreground" />
             </div>
           )}
         </div>
@@ -164,6 +169,6 @@ export function TsutomeCard({ tsutome, onComplete, onClick }: TsutomeCardProps) 
           )}
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
