@@ -215,7 +215,7 @@ export async function generateImage(prompt: string, type: "monster" | "training"
             prompt: fullPrompt,
             n: 1,
             size: "512x512",
-            response_format: "b64_json",
+            // Note: gpt-image-1 always returns base64 format, response_format parameter is not supported
           });
 
           // response.dataが存在し、配列の最初の要素にb64_jsonが存在するかチェック
