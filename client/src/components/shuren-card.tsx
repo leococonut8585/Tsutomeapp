@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Flame, Calendar } from "lucide-react";
+import { Flame, Calendar, Plus } from "lucide-react";
 import { MeditationIcon } from "./icons/japanese-icons";
 import { Shuren } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
@@ -12,6 +12,7 @@ interface ShurenCardProps {
   shuren: Shuren;
   onComplete?: () => void;
   onClick?: () => void;
+  onGenerateTsutome?: () => void;
 }
 
 const genreLabels: Record<string, string> = {
@@ -23,7 +24,7 @@ const genreLabels: Record<string, string> = {
   fun: "遊び",
 };
 
-export function ShurenCard({ shuren, onComplete, onClick }: ShurenCardProps) {
+export function ShurenCard({ shuren, onComplete, onClick, onGenerateTsutome }: ShurenCardProps) {
   const lastCompleted = shuren.lastCompletedAt ? new Date(shuren.lastCompletedAt) : null;
 
   return (
@@ -113,19 +114,36 @@ export function ShurenCard({ shuren, onComplete, onClick }: ShurenCardProps) {
         </div>
 
         {/* アクションボタン */}
-        {onComplete && shuren.active && (
-          <div className="flex-shrink-0">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={(e) => {
-                e.stopPropagation();
-                onComplete();
-              }}
-              data-testid="button-complete-training"
-            >
-              記録
-            </Button>
+        {shuren.active && (
+          <div className="flex-shrink-0 flex flex-col gap-2">
+            {onGenerateTsutome && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onGenerateTsutome();
+                }}
+                className="border-primary/50 hover:bg-primary/10"
+                data-testid="button-generate-daily-tsutome"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                今日の務メ
+              </Button>
+            )}
+            {onComplete && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onComplete();
+                }}
+                data-testid="button-complete-training"
+              >
+                記録
+              </Button>
+            )}
           </div>
         )}
       </div>

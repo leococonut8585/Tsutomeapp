@@ -8,12 +8,14 @@ import { Shuren } from "@shared/schema";
 import { useLocation } from "wouter";
 import { ShurenFormDialog } from "@/components/shuren-form-dialog";
 import { ShurenRecordDialog } from "@/components/shuren-record-dialog";
+import { TsutomeGenerateDialog } from "@/components/tsutome-generate-dialog";
 
 export default function ShurenPage() {
   const [, setLocation] = useLocation();
   const [showShurenForm, setShowShurenForm] = useState(false);
   const [selectedShuren, setSelectedShuren] = useState<Shuren | null>(null);
   const [showRecordDialog, setShowRecordDialog] = useState(false);
+  const [showGenerateDialog, setShowGenerateDialog] = useState(false);
 
   // 修練一覧取得
   const { data: shurens, isLoading } = useQuery<Shuren[]>({
@@ -77,6 +79,10 @@ export default function ShurenPage() {
                   setSelectedShuren(shuren);
                   setShowRecordDialog(true);
                 }}
+                onGenerateTsutome={() => {
+                  setSelectedShuren(shuren);
+                  setShowGenerateDialog(true);
+                }}
                 onClick={() => {
                   // 詳細表示（将来実装）
                 }}
@@ -111,6 +117,16 @@ export default function ShurenPage() {
         open={showRecordDialog}
         onOpenChange={setShowRecordDialog}
       />
+      
+      {/* 務メ生成ダイアログ */}
+      {selectedShuren && (
+        <TsutomeGenerateDialog
+          open={showGenerateDialog}
+          onOpenChange={setShowGenerateDialog}
+          source={selectedShuren}
+          sourceType="shuren"
+        />
+      )}
     </div>
   );
 }
