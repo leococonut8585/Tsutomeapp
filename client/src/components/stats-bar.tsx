@@ -37,6 +37,12 @@ export function StatsBar({ level, exp, expToNext, hp, maxHp, coins }: StatsBarPr
       <div className="flex items-center justify-between">
         {/* 朱印スタンプ風レベル表示（高品質版） */}
         <div className="relative inline-block">
+          {/* 階位ラベル（上に配置） */}
+          <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs text-muted-foreground 
+            font-serif whitespace-nowrap">
+            階位
+          </span>
+          
           {/* 背景の印影 */}
           <div className="absolute inset-0 rounded-full bg-primary/10 blur-sm transform scale-110" />
           
@@ -54,12 +60,6 @@ export function StatsBar({ level, exp, expToNext, hp, maxHp, coins }: StatsBarPr
             <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary/15 
               transform rotate-12" />
           </div>
-          
-          {/* 階位ラベル */}
-          <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-muted-foreground 
-            font-serif px-2 bg-background whitespace-nowrap">
-            階位
-          </span>
         </div>
         
         {/* 両（コイン）表示 - 高品質版 */}

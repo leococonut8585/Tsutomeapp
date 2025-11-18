@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Calendar, Archive, Briefcase } from "lucide-react";
+import { ArrowLeft, Calendar, Archive, Briefcase, Heart, Sparkles } from "lucide-react";
 import { WisdomIcon, KatanaIcon, ThunderIcon, VigorIcon, FortuneIcon } from "@/components/icons/japanese-icons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Player } from "@shared/schema";
@@ -191,7 +191,9 @@ export default function ProfilePage() {
                       <div key={name} className="space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Icon className={`w-5 h-5 ${color}`} />
+                            <div className={`w-5 h-5 ${color}`}>
+                              <Icon />
+                            </div>
                             <span className="text-sm font-semibold">{name}</span>
                           </div>
                           <span className={`text-lg font-mono font-bold ${color}`} data-testid={`stat-${name}`}>
