@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -41,17 +41,31 @@ export function TsutomeGenerateDialog({
   const [difficulty, setDifficulty] = useState("normal");
   const [deadline, setDeadline] = useState<Date | undefined>(new Date());
 
+  // Reset form when dialog opens with new source
+  useEffect(() => {
+    if (open) {
+      console.log("Dialog opened, resetting form for:", { sourceType, sourceId: source?.id });
+      setTitle("");
+      setDifficulty("normal");
+      setDeadline(new Date());
+    }
+  }, [open, source, sourceType]);
+
   // 師範から務メを生成
   const generateFromShihan = useMutation({
     mutationFn: async (data: { title: string; deadline: Date; difficulty: string }) => {
+      console.log("Generating tsutome from shihan:", { shihanId: source?.id, data });
       const res = await apiRequest(
         "POST",
         `/api/shihans/${source?.id}/generate-tsutome`,
         data
       );
-      return res.json();
+      const result = await res.json();
+      console.log("Tsutome generation result:", result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Tsutome generated successfully:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/tsutomes"] });
       queryClient.invalidateQueries({ queryKey: [`/api/shihans/${source?.id}/progress`] });
       toast({
@@ -61,10 +75,11 @@ export function TsutomeGenerateDialog({
       onOpenChange(false);
       resetForm();
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Error generating tsutome from shihan:", error);
       toast({
         title: "エラー",
-        description: "務メの生成に失敗しました",
+        description: error?.message || "務メの生成に失敗しました",
         variant: "destructive",
       });
     },
@@ -73,14 +88,18 @@ export function TsutomeGenerateDialog({
   // 修練から務メを生成
   const generateFromShuren = useMutation({
     mutationFn: async () => {
+      console.log("Generating tsutome from shuren:", { shurenId: source?.id });
       const res = await apiRequest(
         "POST",
         `/api/shurens/${source?.id}/generate-tsutome`,
         {}
       );
-      return res.json();
+      const result = await res.json();
+      console.log("Tsutome generation result:", result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Tsutome generated successfully:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/tsutomes"] });
       toast({
         title: "今日の修練タスクを生成しました",
@@ -90,6 +109,7 @@ export function TsutomeGenerateDialog({
       resetForm();
     },
     onError: (error: any) => {
+      console.error("Error generating tsutome from shuren:", error);
       toast({
         title: "エラー",
         description: error?.message || "務メの生成に失敗しました",
@@ -105,8 +125,11 @@ export function TsutomeGenerateDialog({
   };
 
   const handleSubmit = () => {
+    console.log("handleSubmit called:", { sourceType, source, title, deadline, difficulty });
+    
     if (sourceType === "shihan" && source) {
       if (!title || !deadline) {
+        console.error("Validation failed:", { title, deadline });
         toast({
           title: "入力エラー",
           description: "タイトルと期限を入力してください",
@@ -114,9 +137,13 @@ export function TsutomeGenerateDialog({
         });
         return;
       }
+      console.log("Submitting shihan generation:", { title, deadline, difficulty });
       generateFromShihan.mutate({ title, deadline, difficulty });
     } else if (sourceType === "shuren" && source) {
+      console.log("Submitting shuren generation");
       generateFromShuren.mutate();
+    } else {
+      console.error("Invalid state:", { sourceType, source });
     }
   };
 
@@ -224,7 +251,13 @@ export function TsutomeGenerateDialog({
             <Button
               onClick={handleSubmit}
               className="flex-1"
-              disabled={generateFromShihan.isPending || generateFromShuren.isPending}
+              disabled={
+                // Check if mutations are pending
+                generateFromShihan.isPending || 
+                generateFromShuren.isPending ||
+                // For shihan, also check if required fields are filled
+                (sourceType === "shihan" && (!title || !deadline))
+              }
               data-testid="button-generate-submit"
             >
               {sourceType === "shihan" ? "務メを生成" : "今日のタスクを生成"}

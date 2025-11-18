@@ -179,7 +179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               };
             }
           } else if (tsutome.linkedShihanId) {
-            // Get linked Shihan and calculate progress
+            // Get linked Shihan
             const shihan = await storage.getShihan(tsutome.linkedShihanId);
             if (shihan) {
               // Get all completed tsutomes for this shihan to calculate progress
@@ -188,9 +188,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const totalCount = shihanTsutomes.length || 1;
               const progress = Math.floor((completedCount / totalCount) * 100);
               
-              // Calculate bonus based on progress
-              // 20% = +5%, 40% = +10%, 60% = +15%, 80% = +20%, 100% = +25%
-              bonusPercentage = Math.floor(progress / 20) * 5;
+              // Fixed 20% bonus for Shihan-linked tasks
+              bonusPercentage = 20;
+              
+              console.log(`Shihan bonus calculation for task ${tsutome.id}:`, {
+                shihanId: shihan.id,
+                shihanName: shihan.masterName,
+                progress: `${progress}% (${completedCount}/${totalCount} completed)`,
+                bonusPercentage: `${bonusPercentage}% (fixed)`,
+                rewardBonus: bonusPercentage / 100,
+              });
               
               linkSource = {
                 type: "shihan",
@@ -206,6 +213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return {
             ...tsutome,
             linkSource,
+            rewardBonus: bonusPercentage / 100, // Convert percentage to decimal (20% → 0.2)
           };
         })
       );
@@ -354,9 +362,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const totalCount = shihanTsutomes.length || 1;
           const progress = Math.floor((completedCount / totalCount) * 100);
           
-          // Bonus based on progress
-          const bonusPercentage = Math.floor(progress / 20) * 5;
+          // Fixed 20% bonus for Shihan-linked tasks
+          const bonusPercentage = 20;
           linkBonusMultiplier = 1 + (bonusPercentage / 100);
+          
+          console.log(`Task completion - Shihan bonus for task ${tsutome.id}:`, {
+            shihanId: shihan.id,
+            shihanName: shihan.masterName,
+            progress: `${progress}% (${completedCount}/${totalCount} completed)`,
+            bonusPercentage: `${bonusPercentage}% (fixed)`,
+            linkBonusMultiplier: linkBonusMultiplier,
+            baseRewards: { exp: expGain, coins: coinsGain },
+          });
           
           bonusInfo = {
             type: "shihan",
@@ -762,17 +779,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/shihans/:id/generate-tsutome", async (req, res) => {
     try {
       const { id } = req.params;
+      console.log("Generating tsutome for shihan:", id);
+      
       const shihan = await storage.getShihan(id);
       if (!shihan) {
+        console.error("Shihan not found:", id);
         return res.status(404).json({ error: "Shihan not found" });
       }
 
       const player = await storage.getCurrentPlayer();
       if (!player) {
+        console.error("Player not found");
         return res.status(404).json({ error: "Player not found" });
       }
 
       const { title, deadline, difficulty = "normal" } = req.body;
+      console.log("Request body:", { title, deadline, difficulty });
+      
+      // Validate required fields
+      if (!title || !deadline) {
+        console.error("Missing required fields:", { title, deadline });
+        return res.status(400).json({ 
+          error: "タイトルと期限は必須です",
+          message: "タイトルと期限を入力してください" 
+        });
+      }
       
       // AI生成: モンスター名
       const monsterName = await generateMonsterName(title, shihan.genre, difficulty);
@@ -801,7 +832,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         linkedShihanId: shihan.id, // 師範と連携
       });
 
-      res.status(201).json(tsutome);
+      // Enrich with linkSource and rewardBonus for response
+      const enrichedTsutome = {
+        ...tsutome,
+        linkSource: {
+          type: "shihan",
+          id: shihan.id,
+          name: shihan.masterName,
+          title: shihan.title,
+          bonus: 20, // 師範からは固定20%ボーナス
+          progress: 0, // 新規作成時は進捗0
+        },
+        rewardBonus: 0.2, // 20% bonus as decimal
+      };
+
+      console.log(`Generated tsutome from shihan:`, {
+        tsutomeId: tsutome.id,
+        shihanId: shihan.id,
+        shihanName: shihan.masterName,
+        fixedBonus: "20%",
+        rewardBonus: 0.2,
+        linkSource: enrichedTsutome.linkSource,
+      });
+
+      res.status(201).json(enrichedTsutome);
     } catch (error) {
       console.error("Error generating tsutome from shihan:", error);
       res.status(500).json({ error: "Internal server error" });
@@ -812,13 +866,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/shurens/:id/generate-tsutome", async (req, res) => {
     try {
       const { id } = req.params;
+      console.log("Generating tsutome for shuren:", id);
+      
       const shuren = await storage.getShuren(id);
       if (!shuren) {
+        console.error("Shuren not found:", id);
         return res.status(404).json({ error: "Shuren not found" });
       }
 
       const player = await storage.getCurrentPlayer();
       if (!player) {
+        console.error("Player not found");
         return res.status(404).json({ error: "Player not found" });
       }
 
@@ -868,7 +926,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         linkedShihanId: null,
       });
 
-      res.status(201).json(tsutome);
+      // Calculate bonus based on continuous days
+      const continuousDays = shuren.continuousDays;
+      const bonusPercentage = Math.min(50, Math.floor(continuousDays / 5) * 10);
+      
+      // Enrich with linkSource and rewardBonus for response
+      const enrichedTsutome = {
+        ...tsutome,
+        linkSource: {
+          type: "shuren",
+          id: shuren.id,
+          name: shuren.trainingName,
+          title: shuren.title,
+          bonus: bonusPercentage,
+          continuousDays: shuren.continuousDays,
+        },
+        rewardBonus: bonusPercentage / 100, // Convert percentage to decimal
+      };
+
+      res.status(201).json(enrichedTsutome);
     } catch (error) {
       console.error("Error generating tsutome from shuren:", error);
       res.status(500).json({ error: "Internal server error" });

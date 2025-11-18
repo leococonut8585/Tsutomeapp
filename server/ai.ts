@@ -214,7 +214,7 @@ export async function generateImage(prompt: string, type: "monster" | "training"
             model: "gpt-image-1",
             prompt: fullPrompt,
             n: 1,
-            size: "512x512",
+            size: "1024x1024",
             // Note: gpt-image-1 always returns base64 format, response_format parameter is not supported
           });
 
