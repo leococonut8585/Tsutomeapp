@@ -3,14 +3,17 @@ import { useQuery } from "@tanstack/react-query";
 import { StatsBar } from "@/components/stats-bar";
 import { TsutomeCard } from "@/components/tsutome-card";
 import { TaskFormDialog } from "@/components/task-form-dialog";
+import { TaskCompletionDialog } from "@/components/task-completion-dialog";
 import { Button } from "@/components/ui/button";
 import { Plus, Menu, Settings } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Player, TsutomeWithLinkSource } from "@shared/schema";
+import { Player, TsutomeWithLinkSource, Tsutome } from "@shared/schema";
 import { useCompleteTsutome } from "@/hooks/use-tasks";
 
 export default function Home() {
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const [selectedTsutome, setSelectedTsutome] = useState<Tsutome | null>(null);
   const completeTsutome = useCompleteTsutome();
   // プレイヤー情報取得
   const { data: player, isLoading: playerLoading } = useQuery<Player>({
@@ -99,7 +102,8 @@ export default function Home() {
                     bonus: Math.round(tsutome.rewardBonus * 100)
                   } : undefined}
                   onComplete={() => {
-                    completeTsutome.mutate(tsutome.id);
+                    setSelectedTsutome(tsutome);
+                    setShowCompletionDialog(true);
                   }}
                   onClick={() => {
                     // 詳細表示（将来実装）
@@ -137,6 +141,23 @@ export default function Home() {
         open={showTaskForm} 
         onOpenChange={setShowTaskForm}
         taskType="tsutome"
+      />
+      
+      {/* タスク完了ダイアログ */}
+      <TaskCompletionDialog
+        open={showCompletionDialog}
+        onOpenChange={setShowCompletionDialog}
+        tsutome={selectedTsutome}
+        onComplete={async (completionReport) => {
+          if (selectedTsutome) {
+            const result = await completeTsutome.mutateAsync({
+              id: selectedTsutome.id,
+              completionReport
+            });
+            return result;
+          }
+        }}
+        isLoading={completeTsutome.isPending}
       />
     </div>
   );

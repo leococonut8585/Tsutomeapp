@@ -27,6 +27,7 @@ const genreOptions = [
 ];
 
 const difficultyOptions = [
+  { value: "auto", label: "AI自動判定", stars: 0 },
   { value: "easy", label: "易", stars: 1 },
   { value: "normal", label: "普", stars: 2 },
   { value: "hard", label: "難", stars: 3 },
@@ -37,7 +38,7 @@ const difficultyOptions = [
 export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogProps) {
   const [title, setTitle] = useState("");
   const [genre, setGenre] = useState("hobby");
-  const [difficulty, setDifficulty] = useState("normal");
+  const [difficulty, setDifficulty] = useState("auto");
   const [deadline, setDeadline] = useState<Date>(addDays(new Date(), 7));
   const [repeatInterval, setRepeatInterval] = useState(1);
   const [targetDate, setTargetDate] = useState<Date>(addDays(new Date(), 365)); // 師範用（1年後）
@@ -94,7 +95,7 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
     // フォームをリセット
     setTitle("");
     setGenre("hobby");
-    setDifficulty("normal");
+    setDifficulty("auto");
     setDeadline(addDays(new Date(), 7));
     setRepeatInterval(1);
     setTargetDate(addDays(new Date(), 365));
@@ -160,13 +161,22 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
                 <SelectContent>
                   {difficultyOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label} (★×{option.stars})
+                      {option.value === "auto" ? (
+                        <span className="flex items-center gap-2">
+                          <span>{option.label}</span>
+                          <span className="text-xs text-muted-foreground">🤖</span>
+                        </span>
+                      ) : (
+                        `${option.label} (★×${option.stars})`
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                難易度が高いほど、得られる報酬も大きくなります
+                {difficulty === "auto" 
+                  ? "AIがタスクの内容から難易度を自動判定します" 
+                  : "難易度が高いほど、得られる報酬も大きくなります"}
               </p>
             </div>
           )}
@@ -256,7 +266,11 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
               data-testid="button-submit"
               disabled={createTsutome.isPending || createShuren.isPending || createShihan.isPending || createShikaku.isPending}
             >
-              {(createTsutome.isPending || createShuren.isPending || createShihan.isPending || createShikaku.isPending) ? "作成中..." : "作成"}
+              {(createTsutome.isPending || createShuren.isPending || createShihan.isPending || createShikaku.isPending) ? (
+                taskType === "tsutome" && difficulty === "auto" ? "AI判定中..." : "作成中..."
+              ) : (
+                "作成"
+              )}
             </Button>
           </div>
         </form>

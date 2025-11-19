@@ -39,8 +39,16 @@ export function useCreateTsutome() {
 // 務メ完了
 export function useCompleteTsutome() {
   return useMutation({
-    mutationFn: async (id: string) => {
-      const res = await apiRequest("PATCH", `/api/tsutomes/${id}/complete`);
+    mutationFn: async ({ id, completionReport }: { id: string; completionReport?: string }) => {
+      const res = await apiRequest("PATCH", `/api/tsutomes/${id}/complete`, { 
+        completionReport: completionReport || "" 
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw error;
+      }
+      
       return res.json();
     },
     onSuccess: (data) => {
@@ -49,26 +57,27 @@ export function useCompleteTsutome() {
       
       const rewards = data.rewards;
       if (rewards) {
+        // AI審査結果がある場合、ボーナス倍率も含めて表示
+        const bonusText = data.aiVerificationResult?.bonusMultiplier && data.aiVerificationResult.bonusMultiplier !== 1.0
+          ? ` (倍率: ${(data.aiVerificationResult.bonusMultiplier * 100).toFixed(0)}%)`
+          : "";
+          
         if (rewards.levelUp) {
           toast({
             title: "レベルアップ！",
-            description: `レベル${rewards.newLevel}になりました！`,
+            description: `レベル${rewards.newLevel}になりました！${bonusText}`,
           });
         } else {
           toast({
             title: "討伐完了！",
-            description: `経験値+${rewards.exp} コイン+${rewards.coins}`,
+            description: `経験値+${rewards.exp} コイン+${rewards.coins}${bonusText}`,
           });
         }
       }
     },
     onError: (error: any) => {
-      const message = error.error || "務メの完了に失敗しました";
-      toast({
-        title: "エラー",
-        description: message,
-        variant: "destructive",
-      });
+      // エラーを上位にthrowして、ダイアログ側で処理
+      throw error;
     },
   });
 }
