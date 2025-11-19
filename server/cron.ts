@@ -4,6 +4,10 @@ import {
   generateImage,
 } from "./ai";
 import { InsertShikaku } from "@shared/schema";
+import { logger } from "./utils/logger";
+
+// Create a child logger for cron module
+const cronLogger = logger.child("CRON");
 
 // Convert current time to JST (UTC+9)
 function toJST(date: Date = new Date()): Date {
@@ -60,12 +64,12 @@ function getRandomDifficulty(): "easy" | "normal" | "hard" | "veryHard" {
 
 // Daily Reset - Runs at 0:00 JST
 export async function executeDailyReset(): Promise<void> {
-  console.log("[CRON] Starting daily reset at", new Date().toISOString());
+  cronLogger.info("Starting daily reset at", new Date().toISOString());
   
   try {
     const player = await storage.getCurrentPlayer();
     if (!player) {
-      console.error("[CRON] No player found for daily reset");
+      cronLogger.error("No player found for daily reset");
       return;
     }
 
@@ -81,7 +85,7 @@ export async function executeDailyReset(): Promise<void> {
         lastDate.getFullYear() === now.getFullYear();
         
       if (sameDay) {
-        console.log("[CRON] Daily reset already executed today");
+        cronLogger.info("Daily reset already executed today");
         return;
       }
     }
@@ -91,7 +95,7 @@ export async function executeDailyReset(): Promise<void> {
 
     // 2. Generate new Shikaku (assassin) tasks
     const shikakuCount = randomBetween(1, 3); // 1-3 assassin tasks per day
-    console.log(`[CRON] Generating ${shikakuCount} new assassin tasks`);
+    cronLogger.info(`Generating ${shikakuCount} new assassin tasks`);
     
     for (let i = 0; i < shikakuCount; i++) {
       try {
@@ -108,7 +112,7 @@ export async function executeDailyReset(): Promise<void> {
         try {
           assassinImageUrl = await generateImage(`${assassinName} - ${theme}`, "assassin");
         } catch (error) {
-          console.error("[CRON] Failed to generate assassin image:", error);
+          cronLogger.error("Failed to generate assassin image:", error);
         }
         
         const shikaku: InsertShikaku = {
@@ -121,9 +125,9 @@ export async function executeDailyReset(): Promise<void> {
         };
         
         await storage.createShikaku(shikaku);
-        console.log(`[CRON] Created assassin task: ${assassinName} - ${theme}`);
+        cronLogger.info(`Created assassin task: ${assassinName} - ${theme}`);
       } catch (error) {
-        console.error("[CRON] Failed to create assassin task:", error);
+        cronLogger.error("Failed to create assassin task:", error);
       }
     }
 
@@ -132,11 +136,11 @@ export async function executeDailyReset(): Promise<void> {
     
     if (!currentBoss) {
       // No boss exists, create the first boss
-      console.log("[CRON] No boss found, creating first boss");
+      cronLogger.info("No boss found, creating first boss");
       // Boss creation is handled elsewhere
     } else if (currentBoss.defeated) {
       // Current boss is defeated, generate next boss
-      console.log("[CRON] Current boss defeated, ready for next boss");
+      cronLogger.info("Current boss defeated, ready for next boss");
       // Boss generation is handled when player challenges next boss
     } else {
       // Check if boss challenge period expired
@@ -149,7 +153,7 @@ export async function executeDailyReset(): Promise<void> {
             challengeStartDate: null,
             lastAttackDate: null 
           });
-          console.log("[CRON] Reset boss challenge due to inactivity");
+          cronLogger.info("Reset boss challenge due to inactivity");
         }
       }
     }
@@ -165,9 +169,9 @@ export async function executeDailyReset(): Promise<void> {
       }
     );
 
-    console.log("[CRON] Daily reset completed successfully");
+    cronLogger.info("Daily reset completed successfully");
   } catch (error) {
-    console.error("[CRON] Daily reset failed:", error);
+    cronLogger.error("Daily reset failed:", error);
     await storage.logCronExecution(
       "daily-reset",
       null,
@@ -180,12 +184,12 @@ export async function executeDailyReset(): Promise<void> {
 
 // Hourly Check - Process overdue tasks and penalties
 export async function executeHourlyCheck(): Promise<void> {
-  console.log("[CRON] Starting hourly check at", new Date().toISOString());
+  cronLogger.info("Starting hourly check at", new Date().toISOString());
   
   try {
     const player = await storage.getCurrentPlayer();
     if (!player) {
-      console.error("[CRON] No player found for hourly check");
+      cronLogger.error("No player found for hourly check");
       return;
     }
 
@@ -196,7 +200,7 @@ export async function executeHourlyCheck(): Promise<void> {
     if (lastExecution) {
       const hoursSinceLastExecution = (now.getTime() - lastExecution.getTime()) / (1000 * 60 * 60);
       if (hoursSinceLastExecution < 0.9) { // Allow 54 minutes minimum between executions
-        console.log("[CRON] Hourly check already executed recently");
+        cronLogger.info("Hourly check already executed recently");
         return;
       }
     }
@@ -205,7 +209,7 @@ export async function executeHourlyCheck(): Promise<void> {
     const { hpDamage, deadTasks } = await storage.processOverdueTasks(player.id);
     
     if (hpDamage > 0) {
-      console.log(`[CRON] Applying ${hpDamage} HP damage for overdue tasks`);
+      cronLogger.info(`Applying ${hpDamage} HP damage for overdue tasks`);
       
       // Apply HP damage
       const newHp = Math.max(0, player.hp - hpDamage);
@@ -213,7 +217,7 @@ export async function executeHourlyCheck(): Promise<void> {
       
       // Check for player death
       if (newHp <= 0) {
-        console.log("[CRON] Player died! Handling death...");
+        cronLogger.info("Player died! Handling death...");
         await storage.handlePlayerDeath(player.id);
         
         // Log death event
@@ -247,14 +251,14 @@ export async function executeHourlyCheck(): Promise<void> {
         if (newMissedCount >= 5) {
           // Delete shuren after 5 misses
           await storage.deleteShuren(shuren.id);
-          console.log(`[CRON] Deleted shuren "${shuren.title}" after 5 misses`);
+          cronLogger.info(`Deleted shuren "${shuren.title}" after 5 misses`);
         } else {
           // Increment miss count
           await storage.updateShuren(shuren.id, { 
             missedCount: newMissedCount,
             continuousDays: 0, // Reset streak
           });
-          console.log(`[CRON] Shuren "${shuren.title}" missed (${newMissedCount}/5)`);
+          cronLogger.info(`Shuren "${shuren.title}" missed (${newMissedCount}/5)`);
         }
       }
     }
@@ -271,9 +275,9 @@ export async function executeHourlyCheck(): Promise<void> {
       }
     );
 
-    console.log("[CRON] Hourly check completed successfully");
+    cronLogger.info("Hourly check completed successfully");
   } catch (error) {
-    console.error("[CRON] Hourly check failed:", error);
+    cronLogger.error("Hourly check failed:", error);
     await storage.logCronExecution(
       "hourly-check",
       null,
@@ -320,11 +324,11 @@ export async function getCronStatus(): Promise<{
 
 // Manual trigger functions for testing
 export async function triggerDailyReset(): Promise<void> {
-  console.log("[CRON] Manual trigger: Daily Reset");
+  cronLogger.info("Manual trigger: Daily Reset");
   await executeDailyReset();
 }
 
 export async function triggerHourlyCheck(): Promise<void> {
-  console.log("[CRON] Manual trigger: Hourly Check");
+  cronLogger.info("Manual trigger: Hourly Check");
   await executeHourlyCheck();
 }

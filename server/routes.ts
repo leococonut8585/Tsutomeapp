@@ -17,6 +17,10 @@ import {
   triggerHourlyCheck,
   getCronStatus,
 } from "./cron";
+import { logger } from "./utils/logger";
+
+// Create a child logger for routes module
+const routesLogger = logger.child("Routes");
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ============ Image Generation ============
@@ -41,7 +45,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ imageUrl });
     } catch (error) {
-      console.error("Error generating image:", error);
+      routesLogger.error("Error generating image:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -55,7 +59,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(player);
     } catch (error) {
-      console.error("Error fetching player:", error);
+      routesLogger.error("Error fetching player:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -70,7 +74,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(player);
     } catch (error) {
-      console.error("Error updating player:", error);
+      routesLogger.error("Error updating player:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -145,7 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cost,
       });
     } catch (error) {
-      console.error("Error changing job:", error);
+      routesLogger.error("Error changing job:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -196,7 +200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Fixed 20% bonus for Shihan-linked tasks
               bonusPercentage = 20;
               
-              console.log(`Shihan bonus calculation for task ${tsutome.id}:`, {
+              routesLogger.debug(`Shihan bonus calculation for task ${tsutome.id}:`, {
                 shihanId: shihan.id,
                 shihanName: shihan.masterName,
                 progress: `${progress}% (${completedCount}/${totalCount} completed)`,
@@ -225,21 +229,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(enrichedTsutomes);
     } catch (error) {
-      console.error("Error fetching tsutomes:", error);
+      routesLogger.error("Error fetching tsutomes:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
 
   app.post("/api/tsutomes", async (req, res) => {
-    console.log("POST /api/tsutomes - Request received");
+    routesLogger.debug("POST /api/tsutomes - Request received");
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        console.log("POST /api/tsutomes - Player not found");
+        routesLogger.debug("POST /api/tsutomes - Player not found");
         return res.status(404).json({ error: "Player not found" });
       }
 
-      console.log("POST /api/tsutomes - Player found:", player.id);
+      routesLogger.debug("POST /api/tsutomes - Player found:", player.id);
 
       // 日付文字列をDateオブジェクトに変換
       const data = {
@@ -252,27 +256,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // バリデーション
       const validation = insertTsutomeSchema.safeParse(data);
       if (!validation.success) {
-        console.log("POST /api/tsutomes - Validation failed:", validation.error);
+        routesLogger.debug("POST /api/tsutomes - Validation failed:", validation.error);
         return res.status(400).json({ error: "Invalid input", details: validation.error });
       }
 
       const validatedData = validation.data;
-      console.log("POST /api/tsutomes - Data validated, difficulty:", validatedData.difficulty);
+      routesLogger.debug("POST /api/tsutomes - Data validated, difficulty:", validatedData.difficulty);
 
       // AI判定: 難易度（提供されていない場合、または"auto"が指定された場合）
       let finalDifficulty = validatedData.difficulty;
       if (!finalDifficulty || finalDifficulty === "auto") {
-        console.log(`POST /api/tsutomes - Auto-assessing difficulty for task: ${validatedData.title}`);
+        routesLogger.debug(`POST /api/tsutomes - Auto-assessing difficulty for task: ${validatedData.title}`);
         try {
-          console.log("POST /api/tsutomes - Loading AI module...");
+          routesLogger.debug("POST /api/tsutomes - Loading AI module...");
           const { assessTaskDifficulty } = await import("./ai");
-          console.log("POST /api/tsutomes - Calling AI assessment...");
+          routesLogger.debug("POST /api/tsutomes - Calling AI assessment...");
           const aiDifficulty = await assessTaskDifficulty(
             validatedData.title,
             undefined, // descriptionフィールドは存在しない
             validatedData.genre
           );
-          console.log(`POST /api/tsutomes - AI assessed difficulty: ${aiDifficulty}`);
+          routesLogger.debug(`POST /api/tsutomes - AI assessed difficulty: ${aiDifficulty}`);
           
           // AI結果をDBのenumにマッピング
           const difficultyMap: Record<string, string> = {
@@ -282,9 +286,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             "legendary": "extreme"
           };
           finalDifficulty = difficultyMap[aiDifficulty] || "normal";
-          console.log(`POST /api/tsutomes - Mapped to DB enum: ${finalDifficulty}`);
+          routesLogger.debug(`POST /api/tsutomes - Mapped to DB enum: ${finalDifficulty}`);
         } catch (aiError) {
-          console.error("AI難易度判定エラー:", aiError);
+          routesLogger.error("AI難易度判定エラー:", aiError);
           // AIエラーの場合はデフォルト難易度を設定し、警告を返す
           finalDifficulty = "normal";
           res.locals.aiDifficultyError = "AI難易度判定に失敗したため、通常難易度で設定しました";
@@ -307,10 +311,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // 空文字列が返ってきた場合は画像生成が失敗
         if (!monsterImageUrl) {
           imageGenerationWarning = true;
-          console.warn("妖怪画像の生成に失敗しました。タスクは作成されますが画像なしで保存されます。");
+          routesLogger.warn("妖怪画像の生成に失敗しました。タスクは作成されますが画像なしで保存されます。");
         }
       } catch (error) {
-        console.error("妖怪画像生成エラー:", error);
+        routesLogger.error("妖怪画像生成エラー:", error);
         imageGenerationWarning = true;
         monsterImageUrl = "";
       }
@@ -341,7 +345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(response);
     } catch (error) {
-      console.error("Error creating tsutome:", error);
+      routesLogger.error("Error creating tsutome:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -377,7 +381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       if (completionReport && completionReport.trim()) {
-        console.log(`AI verification for task ${id}: Starting...`);
+        routesLogger.debug(`AI verification for task ${id}: Starting...`);
         
         try {
           const { verifyTaskCompletionAdvanced } = await import("./ai");
@@ -390,7 +394,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             tsutome.difficulty
           );
           
-          console.log(`AI verification result for task ${id}:`, aiVerificationResult);
+          routesLogger.debug(`AI verification result for task ${id}:`, aiVerificationResult);
           
           // 審査に不合格の場合
           if (!aiVerificationResult.approved) {
@@ -401,7 +405,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
         } catch (aiError) {
-          console.error("AI審査エラー:", aiError);
+          routesLogger.error("AI審査エラー:", aiError);
           // AI審査が失敗した場合は、警告付きでデフォルト承認
           aiVerificationResult = {
             approved: true,
@@ -487,7 +491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const bonusPercentage = 20;
           linkBonusMultiplier = 1 + (bonusPercentage / 100);
           
-          console.log(`Task completion - Shihan bonus for task ${tsutome.id}:`, {
+          routesLogger.debug(`Task completion - Shihan bonus for task ${tsutome.id}:`, {
             shihanId: shihan.id,
             shihanName: shihan.masterName,
             progress: `${progress}% (${completedCount}/${totalCount} completed)`,
@@ -660,11 +664,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               isBonus: drop.isBonus,
             }));
             
-            console.log(`Task ${id} completion drops:`, drops);
+            routesLogger.debug(`Task ${id} completion drops:`, drops);
           }
         }
       } catch (dropError) {
-        console.error("Drop processing error:", dropError);
+        routesLogger.error("Drop processing error:", dropError);
         // ドロップ処理が失敗してもタスク完了は継続
       }
 
@@ -690,7 +694,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         drops: drops, // ドロップアイテムを追加
       });
     } catch (error) {
-      console.error("Error completing tsutome:", error);
+      routesLogger.error("Error completing tsutome:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -704,7 +708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting tsutome:", error);
+      routesLogger.error("Error deleting tsutome:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -719,7 +723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const shurens = await storage.getAllShurens(player.id);
       res.json(shurens);
     } catch (error) {
-      console.error("Error fetching shurens:", error);
+      routesLogger.error("Error fetching shurens:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -760,10 +764,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // 空文字列が返ってきた場合は画像生成が失敗
         if (!trainingImageUrl) {
           imageGenerationWarning = true;
-          console.warn("修練画像の生成に失敗しました。修練は作成されますが画像なしで保存されます。");
+          routesLogger.warn("修練画像の生成に失敗しました。修練は作成されますが画像なしで保存されます。");
         }
       } catch (error) {
-        console.error("修練画像生成エラー:", error);
+        routesLogger.error("修練画像生成エラー:", error);
         imageGenerationWarning = true;
         trainingImageUrl = "";
       }
@@ -783,7 +787,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(response);
     } catch (error) {
-      console.error("Error creating shuren:", error);
+      routesLogger.error("Error creating shuren:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -861,7 +865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
     } catch (error) {
-      console.error("Error recording shuren:", error);
+      routesLogger.error("Error recording shuren:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -876,7 +880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const shihans = await storage.getAllShihans(player.id);
       res.json(shihans);
     } catch (error) {
-      console.error("Error fetching shihans:", error);
+      routesLogger.error("Error fetching shihans:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -918,10 +922,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // 空文字列が返ってきた場合は画像生成が失敗
         if (!masterImageUrl) {
           imageGenerationWarning = true;
-          console.warn("師範画像の生成に失敗しました。師範は作成されますが画像なしで保存されます。");
+          routesLogger.warn("師範画像の生成に失敗しました。師範は作成されますが画像なしで保存されます。");
         }
       } catch (error) {
-        console.error("師範画像生成エラー:", error);
+        routesLogger.error("師範画像生成エラー:", error);
         imageGenerationWarning = true;
         masterImageUrl = "";
       }
@@ -941,7 +945,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(response);
     } catch (error) {
-      console.error("Error creating shihan:", error);
+      routesLogger.error("Error creating shihan:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -989,7 +993,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
     } catch (error) {
-      console.error("Error completing shihan:", error);
+      routesLogger.error("Error completing shihan:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1000,26 +1004,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/shihans/:id/generate-tsutome", async (req, res) => {
     try {
       const { id } = req.params;
-      console.log("Generating tsutome for shihan:", id);
+      routesLogger.debug("Generating tsutome for shihan:", id);
       
       const shihan = await storage.getShihan(id);
       if (!shihan) {
-        console.error("Shihan not found:", id);
+        routesLogger.error("Shihan not found:", id);
         return res.status(404).json({ error: "Shihan not found" });
       }
 
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        console.error("Player not found");
+        routesLogger.error("Player not found");
         return res.status(404).json({ error: "Player not found" });
       }
 
       const { title, deadline, difficulty = "normal" } = req.body;
-      console.log("Request body:", { title, deadline, difficulty });
+      routesLogger.debug("Request body:", { title, deadline, difficulty });
       
       // Validate required fields
       if (!title || !deadline) {
-        console.error("Missing required fields:", { title, deadline });
+        routesLogger.error("Missing required fields:", { title, deadline });
         return res.status(400).json({ 
           error: "タイトルと期限は必須です",
           message: "タイトルと期限を入力してください" 
@@ -1037,7 +1041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "monster"
         );
       } catch (error) {
-        console.error("Monster image generation error:", error);
+        routesLogger.error("Monster image generation error:", error);
       }
 
       const tsutome = await storage.createTsutome({
@@ -1067,7 +1071,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         rewardBonus: 0.2, // 20% bonus as decimal
       };
 
-      console.log(`Generated tsutome from shihan:`, {
+      routesLogger.debug(`Generated tsutome from shihan:`, {
         tsutomeId: tsutome.id,
         shihanId: shihan.id,
         shihanName: shihan.masterName,
@@ -1078,7 +1082,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(enrichedTsutome);
     } catch (error) {
-      console.error("Error generating tsutome from shihan:", error);
+      routesLogger.error("Error generating tsutome from shihan:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1087,17 +1091,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/shurens/:id/generate-tsutome", async (req, res) => {
     try {
       const { id } = req.params;
-      console.log("Generating tsutome for shuren:", id);
+      routesLogger.debug("Generating tsutome for shuren:", id);
       
       const shuren = await storage.getShuren(id);
       if (!shuren) {
-        console.error("Shuren not found:", id);
+        routesLogger.error("Shuren not found:", id);
         return res.status(404).json({ error: "Shuren not found" });
       }
 
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        console.error("Player not found");
+        routesLogger.error("Player not found");
         return res.status(404).json({ error: "Player not found" });
       }
 
@@ -1131,7 +1135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "monster"
         );
       } catch (error) {
-        console.error("Monster image generation error:", error);
+        routesLogger.error("Monster image generation error:", error);
       }
 
       const tsutome = await storage.createTsutome({
@@ -1167,7 +1171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(enrichedTsutome);
     } catch (error) {
-      console.error("Error generating tsutome from shuren:", error);
+      routesLogger.error("Error generating tsutome from shuren:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1188,7 +1192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(tsutomes);
     } catch (error) {
-      console.error("Error fetching linked tsutomes:", error);
+      routesLogger.error("Error fetching linked tsutomes:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1216,7 +1220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
     } catch (error) {
-      console.error("Error fetching shihan progress:", error);
+      routesLogger.error("Error fetching shihan progress:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1231,7 +1235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const shikakus = await storage.getAllShikakus(player.id);
       res.json(shikakus);
     } catch (error) {
-      console.error("Error fetching shikakus:", error);
+      routesLogger.error("Error fetching shikakus:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1266,10 +1270,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // 空文字列が返ってきた場合は画像生成が失敗
         if (!assassinImageUrl) {
           imageGenerationWarning = true;
-          console.warn("刺客画像の生成に失敗しました。刺客は作成されますが画像なしで保存されます。");
+          routesLogger.warn("刺客画像の生成に失敗しました。刺客は作成されますが画像なしで保存されます。");
         }
       } catch (error) {
-        console.error("刺客画像生成エラー:", error);
+        routesLogger.error("刺客画像生成エラー:", error);
         imageGenerationWarning = true;
         assassinImageUrl = "";
       }
@@ -1289,7 +1293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(response);
     } catch (error) {
-      console.error("Error creating shikaku:", error);
+      routesLogger.error("Error creating shikaku:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1349,7 +1353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
     } catch (error) {
-      console.error("Error completing shikaku:", error);
+      routesLogger.error("Error completing shikaku:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1387,7 +1391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(boss);
     } catch (error) {
-      console.error("Error fetching boss:", error);
+      routesLogger.error("Error fetching boss:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1495,7 +1499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
     } catch (error) {
-      console.error("Error attacking boss:", error);
+      routesLogger.error("Error attacking boss:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1506,7 +1510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const items = await storage.getAllItems();
       res.json(items);
     } catch (error) {
-      console.error("Error fetching items:", error);
+      routesLogger.error("Error fetching items:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1542,7 +1546,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ item, inventory });
     } catch (error) {
-      console.error("Error buying item:", error);
+      routesLogger.error("Error buying item:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1557,7 +1561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stories = await storage.getAllStories(player.id);
       res.json(stories);
     } catch (error) {
-      console.error("Error fetching stories:", error);
+      routesLogger.error("Error fetching stories:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1573,7 +1577,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedStory = await storage.updateStory(id, { viewed: true });
       res.json(updatedStory);
     } catch (error) {
-      console.error("Error marking story as viewed:", error);
+      routesLogger.error("Error marking story as viewed:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1582,7 +1586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Manual trigger for daily reset (for testing)
   app.post("/api/cron/daily-reset", async (req, res) => {
     try {
-      console.log("[API] Manual trigger for daily reset requested");
+      routesLogger.debug("[API] Manual trigger for daily reset requested");
       await triggerDailyReset();
       res.json({ 
         success: true, 
@@ -1590,7 +1594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error("Error triggering daily reset:", error);
+      routesLogger.error("Error triggering daily reset:", error);
       res.status(500).json({ 
         error: "Failed to trigger daily reset",
         message: error instanceof Error ? error.message : "Unknown error"
@@ -1601,7 +1605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Manual trigger for hourly check (for testing)
   app.post("/api/cron/hourly-check", async (req, res) => {
     try {
-      console.log("[API] Manual trigger for hourly check requested");
+      routesLogger.debug("[API] Manual trigger for hourly check requested");
       await triggerHourlyCheck();
       res.json({ 
         success: true, 
@@ -1609,7 +1613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error("Error triggering hourly check:", error);
+      routesLogger.error("Error triggering hourly check:", error);
       res.status(500).json({ 
         error: "Failed to trigger hourly check",
         message: error instanceof Error ? error.message : "Unknown error"
@@ -1643,7 +1647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         serverTimeJST: new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
       });
     } catch (error) {
-      console.error("Error fetching cron status:", error);
+      routesLogger.error("Error fetching cron status:", error);
       res.status(500).json({ 
         error: "Failed to fetch cron status",
         message: error instanceof Error ? error.message : "Unknown error"
@@ -1675,7 +1679,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(inventoriesWithItems);
     } catch (error) {
-      console.error("Error fetching inventories:", error);
+      routesLogger.error("Error fetching inventories:", error);
       res.status(500).json({ error: "Failed to fetch inventories" });
     }
   });
@@ -1703,7 +1707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(historyWithItems);
     } catch (error) {
-      console.error("Error fetching drop history:", error);
+      routesLogger.error("Error fetching drop history:", error);
       res.status(500).json({ error: "Failed to fetch drop history" });
     }
   });
@@ -1745,7 +1749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recentDrops: recentDropsWithItems
       });
     } catch (error) {
-      console.error("Error fetching drop statistics:", error);
+      routesLogger.error("Error fetching drop statistics:", error);
       res.status(500).json({ error: "Failed to fetch drop statistics" });
     }
   });
@@ -1772,7 +1776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(equippedItems);
     } catch (error) {
-      console.error("Error fetching equipment:", error);
+      routesLogger.error("Error fetching equipment:", error);
       res.status(500).json({ error: "Failed to fetch equipment" });
     }
   });
@@ -1807,7 +1811,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedPlayer = await storage.getPlayer(player.id);
       res.json({ success: true, player: updatedPlayer });
     } catch (error) {
-      console.error("Error equipping item:", error);
+      routesLogger.error("Error equipping item:", error);
       res.status(500).json({ error: "Failed to equip item" });
     }
   });
@@ -1824,7 +1828,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedPlayer = await storage.getPlayer(player.id);
       res.json({ success: true, player: updatedPlayer });
     } catch (error) {
-      console.error("Error unequipping item:", error);
+      routesLogger.error("Error unequipping item:", error);
       res.status(500).json({ error: "Failed to unequip item" });
     }
   });

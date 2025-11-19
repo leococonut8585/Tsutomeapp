@@ -1,11 +1,15 @@
 import OpenAI from "openai";
 import pLimit from "p-limit";
 import pRetry from "p-retry";
+import { logger } from "./utils/logger";
+
+// Create a child logger for AI module
+const aiLogger = logger.child("AI");
 
 // Replit AI Integrations経由でOpenAIを使用
 // 環境変数が設定されていない場合はエラーを出す
 if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY || !process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
-  console.warn("WARNING: OpenAI Integration environment variables not found. AI features may not work.");
+  aiLogger.warn("OpenAI Integration environment variables not found. AI features may not work.");
 }
 
 const openai = new OpenAI({
@@ -84,10 +88,10 @@ easy, medium, hard, legendary のいずれか1単語のみ`;
     }
     
     // フォールバック - "normal" をデフォルトに
-    console.warn(`Invalid difficulty returned: ${aiDifficulty}, using normal as default`);
+    aiLogger.warn(`Invalid difficulty returned: ${aiDifficulty}, using normal as default`);
     return "normal";
   } catch (error) {
-    console.error("タスク難易度判定エラー:", error);
+    aiLogger.error("タスク難易度判定エラー:", error);
     return "normal"; // エラー時はnormalをデフォルトに
   }
 }
@@ -166,7 +170,7 @@ bonusMultiplierの基準：
       bonusMultiplier,
     };
   } catch (error) {
-    console.error("タスク完了審査エラー:", error);
+    aiLogger.error("タスク完了審査エラー:", error);
     // エラー時は通常承認
     return {
       approved: true,
@@ -180,7 +184,7 @@ bonusMultiplierの基準：
 export async function generateMonsterName(taskTitle: string, genre: string, difficulty: string): Promise<string> {
   // OpenAI APIが設定されていない場合は即座にフォールバック
   if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY || !process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
-    console.log("OpenAI API not configured, using fallback monster name");
+    aiLogger.debug("OpenAI API not configured, using fallback monster name");
     const genreNames: Record<string, string[]> = {
       study: ["学魔", "文妖", "読霊", "知妖"],
       exercise: ["体魔", "力妖", "動鬼", "筋霊"],
@@ -194,7 +198,7 @@ export async function generateMonsterName(taskTitle: string, genre: string, diff
   }
 
   try {
-    console.log("Generating monster name with OpenAI...");
+    aiLogger.debug("Generating monster name with OpenAI...");
     const prompt = `あなたは和風ファンタジー世界の妖怪を命名する専門家です。
 
 タスク: ${taskTitle}
@@ -216,10 +220,10 @@ export async function generateMonsterName(taskTitle: string, genre: string, diff
     });
 
     const name = response.choices[0]?.message?.content?.trim();
-    console.log("Monster name generated:", name);
+    aiLogger.debug("Monster name generated:", name);
     return name || "妖怪";
   } catch (error: any) {
-    console.error("妖怪名生成エラー:", error?.message || error);
+    aiLogger.error("妖怪名生成エラー:", error?.message || error);
     // タイムアウトまたはエラーの場合はフォールバック
     const genreNames: Record<string, string[]> = {
       study: ["学魔", "文妖", "読霊", "知妖"],
@@ -258,7 +262,7 @@ export async function generateTrainingName(taskTitle: string, genre: string): Pr
 
     return response.choices[0]?.message?.content?.trim() || "修練の型";
   } catch (error) {
-    console.error("修練名生成エラー:", error);
+    aiLogger.error("修練名生成エラー:", error);
     return `${genre}の型`;
   }
 }
@@ -287,7 +291,7 @@ export async function generateMasterName(taskTitle: string, genre: string): Prom
 
     return response.choices[0]?.message?.content?.trim() || "師範";
   } catch (error) {
-    console.error("師範名生成エラー:", error);
+    aiLogger.error("師範名生成エラー:", error);
     return "導きの師範";
   }
 }
@@ -316,7 +320,7 @@ export async function generateAssassinName(taskTitle: string, difficulty: string
 
     return response.choices[0]?.message?.content?.trim() || "刺客";
   } catch (error) {
-    console.error("刺客名生成エラー:", error);
+    aiLogger.error("刺客名生成エラー:", error);
     return "影の刺客";
   }
 }
@@ -344,7 +348,7 @@ export async function generateBossName(bossNumber: number): Promise<string> {
 
     return response.choices[0]?.message?.content?.trim() || `第${bossNumber}の大敵`;
   } catch (error) {
-    console.error("ボス名生成エラー:", error);
+    aiLogger.error("ボス名生成エラー:", error);
     return `第${bossNumber}の大敵`;
   }
 }
@@ -374,7 +378,7 @@ export async function generateStoryText(bossNumber: number, bossName: string): P
 
     return response.choices[0]?.message?.content?.trim() || `第${bossNumber}章の物語`;
   } catch (error) {
-    console.error("ストーリー生成エラー:", error);
+    aiLogger.error("ストーリー生成エラー:", error);
     return `${bossName}との戦いが始まる...`;
   }
 }
@@ -383,7 +387,7 @@ export async function generateStoryText(bossNumber: number, bossName: string): P
 export async function generateImage(prompt: string, type: "monster" | "training" | "master" | "assassin" | "boss" | "story"): Promise<string> {
   // Replit AI Integration は画像生成をサポートしていない
   // 将来的に別のプロバイダーを使用する予定
-  console.log(`Skipping ${type} image generation - not supported in current integration`);
+  aiLogger.debug(`Skipping ${type} image generation - not supported in current integration`);
   return "";
 }
 
@@ -415,7 +419,7 @@ export async function assessDifficulty(taskTitle: string, genre: string): Promis
     const validDifficulties = ["easy", "normal", "hard", "veryHard", "extreme"];
     return validDifficulties.includes(difficulty) ? difficulty : "normal";
   } catch (error) {
-    console.error("難易度判定エラー:", error);
+    aiLogger.error("難易度判定エラー:", error);
     return "normal";
   }
 }
@@ -441,7 +445,7 @@ export async function verifyTaskCompletion(taskTitle: string, evidence: string):
     const result = response.choices[0]?.message?.content?.trim().toLowerCase() || "no";
     return result === "yes";
   } catch (error) {
-    console.error("タスク審査エラー:", error);
+    aiLogger.error("タスク審査エラー:", error);
     return false;
   }
 }
