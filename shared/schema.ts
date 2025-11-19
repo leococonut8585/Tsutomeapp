@@ -171,6 +171,17 @@ export const inventories = pgTable("inventories", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Cron Logs (for tracking periodic task executions)
+export const cronLogs = pgTable("cron_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskType: varchar("task_type").notNull(), // daily-reset, hourly-check, boss-check
+  playerId: varchar("player_id"),
+  executedAt: timestamp("executed_at").notNull().defaultNow(),
+  success: boolean("success").notNull().default(true),
+  details: text("details"), // JSON string with execution details
+  error: text("error"), // Error message if failed
+});
+
 // Insert Schemas
 export const insertPlayerSchema = createInsertSchema(players).omit({ id: true, createdAt: true });
 export const insertTsutomeSchema = createInsertSchema(tsutomes)
@@ -186,6 +197,7 @@ export const insertBossSchema = createInsertSchema(bosses).omit({ id: true, crea
 export const insertStorySchema = createInsertSchema(stories).omit({ id: true, createdAt: true, viewed: true });
 export const insertItemSchema = createInsertSchema(items).omit({ id: true, createdAt: true });
 export const insertInventorySchema = createInsertSchema(inventories).omit({ id: true, createdAt: true });
+export const insertCronLogSchema = createInsertSchema(cronLogs).omit({ id: true, executedAt: true, success: true });
 
 // Types
 export type Player = typeof players.$inferSelect;
@@ -206,6 +218,8 @@ export type Item = typeof items.$inferSelect;
 export type InsertItem = z.infer<typeof insertItemSchema>;
 export type Inventory = typeof inventories.$inferSelect;
 export type InsertInventory = z.infer<typeof insertInventorySchema>;
+export type CronLog = typeof cronLogs.$inferSelect;
+export type InsertCronLog = z.infer<typeof insertCronLogSchema>;
 
 // DTOs for enriched responses
 export interface LinkSource {

@@ -8,6 +8,7 @@ import {
   type Story, type InsertStory,
   type Item, type InsertItem,
   type Inventory, type InsertInventory,
+  type CronLog, type InsertCronLog,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -71,6 +72,16 @@ export interface IStorage {
   getPlayerInventory(playerId: string): Promise<Inventory[]>;
   addToInventory(inventory: InsertInventory): Promise<Inventory>;
   updateInventory(id: string, updates: Partial<Inventory>): Promise<Inventory | undefined>;
+
+  // Cron Operations
+  getLastCronExecution(taskType: string, playerId?: string): Promise<Date | undefined>;
+  logCronExecution(taskType: string, playerId: string | null, success: boolean, details?: any, error?: string): Promise<void>;
+  
+  // Periodic Operations
+  resetDailyShurenCompletions(playerId: string): Promise<void>;
+  processOverdueTasks(playerId: string): Promise<{ hpDamage: number; deadTasks: string[] }>;
+  generateDailyShikakus(playerId: string, count: number): Promise<void>;
+  handlePlayerDeath(playerId: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -83,6 +94,7 @@ export class MemStorage implements IStorage {
   private stories: Map<string, Story>;
   private items: Map<string, Item>;
   private inventories: Map<string, Inventory>;
+  private cronLogs: Map<string, CronLog>;
   private defaultPlayerId: string | null = null;
 
   constructor() {
@@ -95,6 +107,7 @@ export class MemStorage implements IStorage {
     this.stories = new Map();
     this.items = new Map();
     this.inventories = new Map();
+    this.cronLogs = new Map();
     this.initializeDefaultData();
   }
 
@@ -699,6 +712,135 @@ export class MemStorage implements IStorage {
     this.inventories.set(id, updated);
     return updated;
   }
+
+  // Cron Operations
+  async getLastCronExecution(taskType: string, playerId?: string): Promise<Date | undefined> {
+    const logs = Array.from(this.cronLogs.values())
+      .filter(log => log.taskType === taskType && (!playerId || log.playerId === playerId))
+      .sort((a, b) => new Date(b.executedAt!).getTime() - new Date(a.executedAt!).getTime());
+    
+    return logs.length > 0 ? new Date(logs[0].executedAt!) : undefined;
+  }
+
+  async logCronExecution(taskType: string, playerId: string | null, success: boolean, details?: any, error?: string): Promise<void> {
+    const id = randomUUID();
+    const cronLog: CronLog = {
+      id,
+      taskType,
+      playerId,
+      executedAt: new Date(),
+      success,
+      details: details ? JSON.stringify(details) : null,
+      error: error || null,
+    };
+    this.cronLogs.set(id, cronLog);
+  }
+
+  // Periodic Operations
+  async resetDailyShurenCompletions(playerId: string): Promise<void> {
+    // Reset all shuren daily completions for a player
+    const shurens = await this.getAllShurens(playerId);
+    for (const shuren of shurens) {
+      const now = new Date();
+      const lastCompleted = shuren.lastCompletedAt ? new Date(shuren.lastCompletedAt) : null;
+      
+      // Check if it's a new day
+      if (!lastCompleted || !isSameDay(lastCompleted, now)) {
+        // Reset daily completion tracking (this would be tracked elsewhere for daily completion)
+        // The actual completion flag would be managed per day
+      }
+    }
+  }
+
+  async processOverdueTasks(playerId: string): Promise<{ hpDamage: number; deadTasks: string[] }> {
+    const now = new Date();
+    let totalDamage = 0;
+    const deadTasks: string[] = [];
+
+    // Process overdue Tsutomes
+    const tsutomes = await this.getAllTsutomes(playerId);
+    for (const tsutome of tsutomes) {
+      if (!tsutome.completed && !tsutome.cancelled) {
+        const deadline = new Date(tsutome.deadline);
+        if (deadline < now) {
+          const daysOverdue = Math.floor((now.getTime() - deadline.getTime()) / (1000 * 60 * 60 * 24));
+          if (daysOverdue > 0) {
+            totalDamage += daysOverdue * 10; // 10 HP per day
+            deadTasks.push(`務メ: ${tsutome.title} (${daysOverdue}日遅延)`);
+          }
+        }
+      }
+    }
+
+    // Process overdue Shihans
+    const shihans = await this.getAllShihans(playerId);
+    for (const shihan of shihans) {
+      if (!shihan.completed) {
+        const targetDate = new Date(shihan.targetDate);
+        if (targetDate < now) {
+          const daysOverdue = Math.floor((now.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (daysOverdue > 0) {
+            totalDamage += daysOverdue * 20; // 20 HP per day
+            deadTasks.push(`師範: ${shihan.title} (${daysOverdue}日遅延)`);
+          }
+        }
+      }
+    }
+
+    // Process expired Shikakus
+    const shikakus = await this.getAllShikakus(playerId);
+    for (const shikaku of shikakus) {
+      if (!shikaku.completed) {
+        const expiresAt = new Date(shikaku.expiresAt);
+        if (expiresAt < now) {
+          totalDamage += 30; // 30 HP immediately
+          deadTasks.push(`刺客: ${shikaku.title} (期限切れ)`);
+          // Mark as expired/cancelled
+          await this.deleteShikaku(shikaku.id);
+        }
+      }
+    }
+
+    return { hpDamage: totalDamage, deadTasks };
+  }
+
+  async generateDailyShikakus(playerId: string, count: number): Promise<void> {
+    // This will be implemented in cron.ts using the AI service
+    // We need to import and use the AI service for generating assassin names
+  }
+
+  async handlePlayerDeath(playerId: string): Promise<void> {
+    const player = await this.getPlayer(playerId);
+    if (!player) return;
+
+    // Reset player stats on death
+    const updates: Partial<Player> = {
+      hp: player.maxHp, // Reset to max HP
+      coins: Math.floor(player.coins / 2), // Lose 50% coins
+      jobLevel: 1, // Reset job level to 1
+      jobXp: 0, // Reset job XP
+      streak: 0, // Reset streak
+    };
+
+    await this.updatePlayer(playerId, updates);
+
+    // Clear all active tasks
+    const tsutomes = await this.getAllTsutomes(playerId);
+    for (const tsutome of tsutomes) {
+      if (!tsutome.completed) {
+        await this.updateTsutome(tsutome.id, { cancelled: true });
+      }
+    }
+  }
+}
+
+// Helper function to check if two dates are the same day
+function isSameDay(date1: Date, date2: Date): boolean {
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  d1.setHours(0, 0, 0, 0);
+  d2.setHours(0, 0, 0, 0);
+  return d1.getTime() === d2.getTime();
 }
 
 // DB対応の実装

@@ -12,6 +12,11 @@ import {
   generateImage,
   assessDifficulty,
 } from "./ai";
+import {
+  triggerDailyReset,
+  triggerHourlyCheck,
+  getCronStatus,
+} from "./cron";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ============ Image Generation ============
@@ -1457,6 +1462,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error marking story as viewed:", error);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ============ Cron/Periodic Processing ============
+  // Manual trigger for daily reset (for testing)
+  app.post("/api/cron/daily-reset", async (req, res) => {
+    try {
+      console.log("[API] Manual trigger for daily reset requested");
+      await triggerDailyReset();
+      res.json({ 
+        success: true, 
+        message: "Daily reset triggered successfully",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error triggering daily reset:", error);
+      res.status(500).json({ 
+        error: "Failed to trigger daily reset",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Manual trigger for hourly check (for testing)
+  app.post("/api/cron/hourly-check", async (req, res) => {
+    try {
+      console.log("[API] Manual trigger for hourly check requested");
+      await triggerHourlyCheck();
+      res.json({ 
+        success: true, 
+        message: "Hourly check triggered successfully",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error triggering hourly check:", error);
+      res.status(500).json({ 
+        error: "Failed to trigger hourly check",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Get cron status
+  app.get("/api/cron/status", async (req, res) => {
+    try {
+      const status = await getCronStatus();
+      res.json({
+        success: true,
+        dailyReset: {
+          lastRun: status.dailyReset.lastRun,
+          nextRun: status.dailyReset.nextRun,
+          lastRunFormatted: status.dailyReset.lastRun 
+            ? new Date(status.dailyReset.lastRun).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
+            : "Never",
+          nextRunFormatted: new Date(status.dailyReset.nextRun).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
+        },
+        hourlyCheck: {
+          lastRun: status.hourlyCheck.lastRun,
+          nextRun: status.hourlyCheck.nextRun,
+          lastRunFormatted: status.hourlyCheck.lastRun 
+            ? new Date(status.hourlyCheck.lastRun).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
+            : "Never",
+          nextRunFormatted: new Date(status.hourlyCheck.nextRun).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
+        },
+        serverTime: new Date().toISOString(),
+        serverTimeJST: new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
+      });
+    } catch (error) {
+      console.error("Error fetching cron status:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch cron status",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

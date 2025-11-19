@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { eq, and, or, desc, isNull } from "drizzle-orm";
+import { eq, and, or, desc, isNull, lt, lte } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import {
   players,
@@ -12,6 +12,7 @@ import {
   stories,
   items,
   inventories,
+  cronLogs,
   type Player,
   type Tsutome,
   type Shuren,
@@ -21,6 +22,7 @@ import {
   type Story,
   type Item,
   type Inventory,
+  type CronLog,
   type InsertPlayer,
   type InsertTsutome,
   type InsertShuren,
@@ -30,6 +32,7 @@ import {
   type InsertStory,
   type InsertItem,
   type InsertInventory,
+  type InsertCronLog,
 } from "@shared/schema";
 import { IStorage } from "./storage";
 
@@ -260,4 +263,139 @@ export class DbStorage implements IStorage {
     const result = await db.update(inventories).set(updates).where(eq(inventories.id, id)).returning();
     return result[0];
   }
+
+  // Cron Operations
+  async getLastCronExecution(taskType: string, playerId?: string): Promise<Date | undefined> {
+    const conditions = [eq(cronLogs.taskType, taskType)];
+    if (playerId) {
+      conditions.push(eq(cronLogs.playerId, playerId));
+    }
+    
+    const result = await db
+      .select()
+      .from(cronLogs)
+      .where(and(...conditions))
+      .orderBy(desc(cronLogs.executedAt))
+      .limit(1);
+    
+    return result.length > 0 ? new Date(result[0].executedAt!) : undefined;
+  }
+
+  async logCronExecution(taskType: string, playerId: string | null, success: boolean, details?: any, error?: string): Promise<void> {
+    await db.insert(cronLogs).values({
+      taskType,
+      playerId,
+      success,
+      details: details ? JSON.stringify(details) : null,
+      error: error || null,
+    });
+  }
+
+  // Periodic Operations
+  async resetDailyShurenCompletions(playerId: string): Promise<void> {
+    // In a real system, we'd track daily completions separately
+    // For now, we just check if lastCompletedAt is today
+    const shurens = await this.getAllShurens(playerId);
+    const now = new Date();
+    
+    for (const shuren of shurens) {
+      const lastCompleted = shuren.lastCompletedAt ? new Date(shuren.lastCompletedAt) : null;
+      
+      // If last completion was not today, reset the tracking
+      if (!lastCompleted || !isSameDay(lastCompleted, now)) {
+        // The actual daily completion is tracked in the frontend
+        // Here we just ensure the backend is ready for new completions
+      }
+    }
+  }
+
+  async processOverdueTasks(playerId: string): Promise<{ hpDamage: number; deadTasks: string[] }> {
+    const now = new Date();
+    let totalDamage = 0;
+    const deadTasks: string[] = [];
+
+    // Process overdue Tsutomes
+    const tsutomes = await this.getAllTsutomes(playerId);
+    for (const tsutome of tsutomes) {
+      if (!tsutome.completed && !tsutome.cancelled) {
+        const deadline = new Date(tsutome.deadline);
+        if (deadline < now) {
+          const daysOverdue = Math.floor((now.getTime() - deadline.getTime()) / (1000 * 60 * 60 * 24));
+          if (daysOverdue > 0) {
+            totalDamage += daysOverdue * 10; // 10 HP per day
+            deadTasks.push(`務メ: ${tsutome.title} (${daysOverdue}日遅延)`);
+          }
+        }
+      }
+    }
+
+    // Process overdue Shihans
+    const shihans = await this.getAllShihans(playerId);
+    for (const shihan of shihans) {
+      if (!shihan.completed) {
+        const targetDate = new Date(shihan.targetDate);
+        if (targetDate < now) {
+          const daysOverdue = Math.floor((now.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (daysOverdue > 0) {
+            totalDamage += daysOverdue * 20; // 20 HP per day
+            deadTasks.push(`師範: ${shihan.title} (${daysOverdue}日遅延)`);
+          }
+        }
+      }
+    }
+
+    // Process expired Shikakus
+    const shikakus = await this.getAllShikakus(playerId);
+    for (const shikaku of shikakus) {
+      if (!shikaku.completed) {
+        const expiresAt = new Date(shikaku.expiresAt);
+        if (expiresAt < now) {
+          totalDamage += 30; // 30 HP immediately
+          deadTasks.push(`刺客: ${shikaku.title} (期限切れ)`);
+          // Mark as expired/cancelled
+          await this.deleteShikaku(shikaku.id);
+        }
+      }
+    }
+
+    return { hpDamage: totalDamage, deadTasks };
+  }
+
+  async generateDailyShikakus(playerId: string, count: number): Promise<void> {
+    // This will be implemented in cron.ts using the AI service
+    // We need to import and use the AI service for generating assassin names
+  }
+
+  async handlePlayerDeath(playerId: string): Promise<void> {
+    const player = await this.getPlayer(playerId);
+    if (!player) return;
+
+    // Reset player stats on death
+    const updates: Partial<Player> = {
+      hp: player.maxHp, // Reset to max HP
+      coins: Math.floor(player.coins / 2), // Lose 50% coins
+      jobLevel: 1, // Reset job level to 1
+      jobXp: 0, // Reset job XP
+      streak: 0, // Reset streak
+    };
+
+    await this.updatePlayer(playerId, updates);
+
+    // Clear all active tasks
+    const tsutomes = await this.getAllTsutomes(playerId);
+    for (const tsutome of tsutomes) {
+      if (!tsutome.completed) {
+        await this.updateTsutome(tsutome.id, { cancelled: true });
+      }
+    }
+  }
+}
+
+// Helper function to check if two dates are the same day
+function isSameDay(date1: Date, date2: Date): boolean {
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  d1.setHours(0, 0, 0, 0);
+  d2.setHours(0, 0, 0, 0);
+  return d1.getTime() === d2.getTime();
 }
