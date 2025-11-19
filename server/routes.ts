@@ -417,32 +417,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         switch (difficulty) {
           case "easy":
             return {
-              exp: 10 + Math.floor(Math.random() * 11), // 10-20
-              coins: 20 + Math.floor(Math.random() * 21), // 20-40
+              exp: 15 + Math.floor(Math.random() * 11), // 15-25 (増加)
+              coins: 25 + Math.floor(Math.random() * 16), // 25-40
             };
           case "normal":
             return {
-              exp: 30 + Math.floor(Math.random() * 21), // 30-50
+              exp: 35 + Math.floor(Math.random() * 21), // 35-55 (微増)
               coins: 60 + Math.floor(Math.random() * 41), // 60-100
             };
           case "hard":
             return {
-              exp: 70 + Math.floor(Math.random() * 31), // 70-100
-              coins: 140 + Math.floor(Math.random() * 61), // 140-200
+              exp: 65 + Math.floor(Math.random() * 31), // 65-95 (微減)
+              coins: 130 + Math.floor(Math.random() * 61), // 130-190
             };
           case "veryHard":
             return {
-              exp: 100 + Math.floor(Math.random() * 51), // 100-150
-              coins: 200 + Math.floor(Math.random() * 101), // 200-300
+              exp: 95 + Math.floor(Math.random() * 41), // 95-135 (微減)
+              coins: 190 + Math.floor(Math.random() * 91), // 190-280
             };
           case "extreme":
             return {
-              exp: 150 + Math.floor(Math.random() * 51), // 150-200
-              coins: 300 + Math.floor(Math.random() * 101), // 300-400
+              exp: 130 + Math.floor(Math.random() * 51), // 130-180 (減少)
+              coins: 280 + Math.floor(Math.random() * 101), // 280-380
             };
           default:
             return {
-              exp: 30 + Math.floor(Math.random() * 21), // default to normal
+              exp: 35 + Math.floor(Math.random() * 21), // default to normal
               coins: 60 + Math.floor(Math.random() * 41),
             };
         }
