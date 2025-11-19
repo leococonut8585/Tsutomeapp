@@ -8,13 +8,13 @@ const RARITY_MULTIPLIERS: Record<string, number> = {
   legendary: 0.1,
 };
 
-// 難易度別の基本ドロップチャンス
+// 難易度別の基本ドロップチャンス（より段階的な調整）
 const DIFFICULTY_DROP_CHANCE: Record<string, number> = {
-  easy: 30,      // 30% chance
-  normal: 40,    // 40% chance
-  hard: 50,      // 50% chance
-  veryHard: 55,  // 55% chance
-  extreme: 60,   // 60% chance
+  easy: 20,      // 20% chance - 初心者向けに控えめ
+  normal: 30,    // 30% chance - 適度な報酬
+  hard: 40,      // 40% chance - 努力に見合う報酬
+  veryHard: 50,  // 50% chance - 高難度への挑戦報酬
+  extreme: 60,   // 60% chance - 最高難度の達成感
 };
 
 // 難易度別のレアリティウェイト
