@@ -1559,6 +1559,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Inventory routes
+  app.get("/api/inventories", async (req, res) => {
+    try {
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Get player's inventory items
+      const inventories = await storage.getPlayerInventory(player.id);
+      
+      // Fetch item details for each inventory entry
+      const inventoriesWithItems = await Promise.all(
+        inventories.map(async (inv) => {
+          const item = await storage.getItem(inv.itemId);
+          return {
+            ...inv,
+            item
+          };
+        })
+      );
+      
+      res.json(inventoriesWithItems);
+    } catch (error) {
+      console.error("Error fetching inventories:", error);
+      res.status(500).json({ error: "Failed to fetch inventories" });
+    }
+  });
+
+  // Equipment routes
+  app.get("/api/equipment", async (req, res) => {
+    try {
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Get equipped items from inventory
+      const inventories = await storage.getPlayerInventory(player.id);
+      const equippedInventories = inventories.filter(inv => inv.equipped);
+      
+      // Fetch item details for equipped items
+      const equippedItems = await Promise.all(
+        equippedInventories.map(async (inv) => {
+          const item = await storage.getItem(inv.itemId);
+          return item;
+        })
+      );
+      
+      res.json(equippedItems);
+    } catch (error) {
+      console.error("Error fetching equipment:", error);
+      res.status(500).json({ error: "Failed to fetch equipment" });
+    }
+  });
+
+  app.post("/api/equipment/equip", async (req, res) => {
+    try {
+      const { itemId } = req.body;
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Get item details
+      const item = await storage.getItem(itemId);
+      if (!item) {
+        return res.status(404).json({ error: "Item not found" });
+      }
+      
+      // Determine slot based on item type
+      let slot: 'weapon' | 'armor' | 'accessory';
+      if (item.itemType === 'weapon') {
+        slot = 'weapon';
+      } else if (item.itemType === 'armor') {
+        slot = 'armor';
+      } else if (item.itemType === 'accessory') {
+        slot = 'accessory';
+      } else {
+        return res.status(400).json({ error: "Item cannot be equipped" });
+      }
+      
+      await storage.equipItem(player.id, itemId, slot);
+      const updatedPlayer = await storage.getPlayer(player.id);
+      res.json({ success: true, player: updatedPlayer });
+    } catch (error) {
+      console.error("Error equipping item:", error);
+      res.status(500).json({ error: "Failed to equip item" });
+    }
+  });
+
+  app.post("/api/equipment/unequip", async (req, res) => {
+    try {
+      const { slot } = req.body;
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      await storage.unequipItem(player.id, slot);
+      const updatedPlayer = await storage.getPlayer(player.id);
+      res.json({ success: true, player: updatedPlayer });
+    } catch (error) {
+      console.error("Error unequipping item:", error);
+      res.status(500).json({ error: "Failed to unequip item" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

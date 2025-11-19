@@ -20,6 +20,7 @@ import ShopPage from "@/pages/shop";
 import ProfilePage from "@/pages/profile";
 import CalendarPage from "@/pages/calendar";
 import StoryPage from "@/pages/story";
+import EquipmentPage from "@/pages/equipment";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/boss" component={BossPage} />
       <Route path="/shop" component={ShopPage} />
       <Route path="/profile" component={ProfilePage} />
+      <Route path="/equipment" component={EquipmentPage} />
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/story" component={StoryPage} />
       <Route component={NotFound} />
