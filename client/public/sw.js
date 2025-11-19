@@ -16,15 +16,13 @@ const STATIC_ASSETS = [
 
 // Install event - cache static assets
 self.addEventListener('install', event => {
-  console.log('[SW] Installing service worker...');
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME)
       .then(cache => {
-        console.log('[SW] Caching static assets');
         return cache.addAll(STATIC_ASSETS.map(url => new Request(url, { cache: 'reload' })));
       })
       .catch(err => {
-        console.error('[SW] Failed to cache static assets:', err);
+        // Silent failure - service worker will still install
       })
   );
   self.skipWaiting();
@@ -32,7 +30,6 @@ self.addEventListener('install', event => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', event => {
-  console.log('[SW] Activating service worker...');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
@@ -41,7 +38,6 @@ self.addEventListener('activate', event => {
                          name !== STATIC_CACHE_NAME && name !== DYNAMIC_CACHE_NAME && 
                          name !== API_CACHE_NAME)
           .map(name => {
-            console.log('[SW] Deleting old cache:', name);
             return caches.delete(name);
           })
       );
@@ -126,7 +122,6 @@ self.addEventListener('fetch', event => {
 
 // Background sync for offline task creation
 self.addEventListener('sync', event => {
-  console.log('[SW] Background sync triggered');
   if (event.tag === 'sync-tasks') {
     event.waitUntil(syncOfflineTasks());
   }
@@ -158,7 +153,7 @@ async function syncOfflineTasks() {
           await deleteStore.delete(task.id);
         }
       } catch (error) {
-        console.error('[SW] Failed to sync task:', error);
+        // Silent failure - will retry on next sync
       }
     }
 
@@ -172,7 +167,7 @@ async function syncOfflineTasks() {
       });
     });
   } catch (error) {
-    console.error('[SW] Background sync failed:', error);
+    // Silent failure - background sync will retry
   }
 }
 
