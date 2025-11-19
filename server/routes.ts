@@ -251,23 +251,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let finalDifficulty = validatedData.difficulty;
       if (!finalDifficulty || finalDifficulty === "auto") {
         console.log(`Auto-assessing difficulty for task: ${validatedData.title}`);
-        const { assessTaskDifficulty } = await import("./ai");
-        const aiDifficulty = await assessTaskDifficulty(
-          validatedData.title,
-          undefined, // descriptionフィールドは存在しない
-          validatedData.genre
-        );
-        console.log(`AI assessed difficulty: ${aiDifficulty}`);
-        
-        // AI結果をDBのenumにマッピング
-        const difficultyMap: Record<string, string> = {
-          "easy": "easy",
-          "medium": "normal",
-          "hard": "hard",
-          "legendary": "extreme"
-        };
-        finalDifficulty = difficultyMap[aiDifficulty] || "normal";
-        console.log(`Mapped to DB enum: ${finalDifficulty}`);
+        try {
+          const { assessTaskDifficulty } = await import("./ai");
+          const aiDifficulty = await assessTaskDifficulty(
+            validatedData.title,
+            undefined, // descriptionフィールドは存在しない
+            validatedData.genre
+          );
+          console.log(`AI assessed difficulty: ${aiDifficulty}`);
+          
+          // AI結果をDBのenumにマッピング
+          const difficultyMap: Record<string, string> = {
+            "easy": "easy",
+            "medium": "normal",
+            "hard": "hard",
+            "legendary": "extreme"
+          };
+          finalDifficulty = difficultyMap[aiDifficulty] || "normal";
+          console.log(`Mapped to DB enum: ${finalDifficulty}`);
+        } catch (aiError) {
+          console.error("AI難易度判定エラー:", aiError);
+          // AIエラーの場合はデフォルト難易度を設定し、警告を返す
+          finalDifficulty = "normal";
+          res.locals.aiDifficultyError = "AI難易度判定に失敗したため、通常難易度で設定しました";
+        }
       }
 
       // AI生成: 妖怪名
@@ -302,10 +309,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         monsterImageUrl,
       });
 
-      // 画像生成エラーがあった場合は警告フラグを含めてレスポンス
+      // レスポンスにエラー警告を含める
       const response: any = tsutome;
+      const warnings = [];
+      
       if (imageGenerationWarning) {
-        response.warning = "妖怪画像の生成に失敗しました。タスクは作成されました。";
+        warnings.push("妖怪画像の生成に失敗しました");
+      }
+      
+      if (res.locals.aiDifficultyError) {
+        warnings.push(res.locals.aiDifficultyError);
+      }
+      
+      if (warnings.length > 0) {
+        response.warning = warnings.join("。") + "。タスクは作成されました。";
       }
 
       res.status(201).json(response);
@@ -347,25 +364,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (completionReport && completionReport.trim()) {
         console.log(`AI verification for task ${id}: Starting...`);
-        const { verifyTaskCompletionAdvanced } = await import("./ai");
         
-        aiVerificationResult = await verifyTaskCompletionAdvanced(
-          tsutome.title,
-          null, // tsutomeテーブルにdescriptionフィールドはない
-          completionReport,
-          tsutome.monsterName || "妖怪",
-          tsutome.difficulty
-        );
-        
-        console.log(`AI verification result for task ${id}:`, aiVerificationResult);
-        
-        // 審査に不合格の場合
-        if (!aiVerificationResult.approved) {
-          return res.status(400).json({
-            error: "タスク完了が承認されませんでした",
-            feedback: aiVerificationResult.feedback,
-            requiresRevision: true
-          });
+        try {
+          const { verifyTaskCompletionAdvanced } = await import("./ai");
+          
+          aiVerificationResult = await verifyTaskCompletionAdvanced(
+            tsutome.title,
+            null, // tsutomeテーブルにdescriptionフィールドはない
+            completionReport,
+            tsutome.monsterName || "妖怪",
+            tsutome.difficulty
+          );
+          
+          console.log(`AI verification result for task ${id}:`, aiVerificationResult);
+          
+          // 審査に不合格の場合
+          if (!aiVerificationResult.approved) {
+            return res.status(400).json({
+              error: "タスク完了が承認されませんでした",
+              feedback: aiVerificationResult.feedback,
+              requiresRevision: true
+            });
+          }
+        } catch (aiError) {
+          console.error("AI審査エラー:", aiError);
+          // AI審査が失敗した場合は、警告付きでデフォルト承認
+          aiVerificationResult = {
+            approved: true,
+            feedback: "AI審査が利用できないため、通常承認しました",
+            bonusMultiplier: 1.0
+          };
+          res.locals.aiVerificationError = true;
         }
       }
 
