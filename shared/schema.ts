@@ -186,6 +186,18 @@ export const cronLogs = pgTable("cron_logs", {
   error: text("error"), // Error message if failed
 });
 
+// Drop History (for tracking item drops from tasks)
+export const dropHistory = pgTable("drop_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull().references(() => players.id),
+  itemId: varchar("item_id").notNull().references(() => items.id),
+  tsutomeId: varchar("tsutome_id").references(() => tsutomes.id), // Task that dropped this item
+  quantity: integer("quantity").notNull().default(1),
+  rarity: varchar("rarity", { length: 20 }).notNull(), // common, rare, epic, legendary
+  isBonus: boolean("is_bonus").notNull().default(false), // Was this a bonus drop?
+  droppedAt: timestamp("dropped_at").notNull().defaultNow(),
+});
+
 // Insert Schemas
 export const insertPlayerSchema = createInsertSchema(players).omit({ id: true, createdAt: true });
 export const insertTsutomeSchema = createInsertSchema(tsutomes)
@@ -202,6 +214,7 @@ export const insertStorySchema = createInsertSchema(stories).omit({ id: true, cr
 export const insertItemSchema = createInsertSchema(items).omit({ id: true, createdAt: true });
 export const insertInventorySchema = createInsertSchema(inventories).omit({ id: true, createdAt: true });
 export const insertCronLogSchema = createInsertSchema(cronLogs).omit({ id: true, executedAt: true, success: true });
+export const insertDropHistorySchema = createInsertSchema(dropHistory).omit({ id: true, droppedAt: true });
 
 // Types
 export type Player = typeof players.$inferSelect;
@@ -224,6 +237,8 @@ export type Inventory = typeof inventories.$inferSelect;
 export type InsertInventory = z.infer<typeof insertInventorySchema>;
 export type CronLog = typeof cronLogs.$inferSelect;
 export type InsertCronLog = z.infer<typeof insertCronLogSchema>;
+export type DropHistory = typeof dropHistory.$inferSelect;
+export type InsertDropHistory = z.infer<typeof insertDropHistorySchema>;
 
 // DTOs for enriched responses
 export interface LinkSource {

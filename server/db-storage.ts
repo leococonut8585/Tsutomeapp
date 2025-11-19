@@ -13,6 +13,7 @@ import {
   items,
   inventories,
   cronLogs,
+  dropHistory,
   type Player,
   type Tsutome,
   type Shuren,
@@ -23,6 +24,7 @@ import {
   type Item,
   type Inventory,
   type CronLog,
+  type DropHistory,
   type InsertPlayer,
   type InsertTsutome,
   type InsertShuren,
@@ -33,6 +35,7 @@ import {
   type InsertItem,
   type InsertInventory,
   type InsertCronLog,
+  type InsertDropHistory,
 } from "@shared/schema";
 import { IStorage } from "./storage";
 
@@ -388,6 +391,61 @@ export class DbStorage implements IStorage {
         await this.updateTsutome(tsutome.id, { cancelled: true });
       }
     }
+  }
+
+  // ============ Drop History ============
+  async recordDropHistory(drop: InsertDropHistory): Promise<DropHistory> {
+    const [record] = await this.db
+      .insert(dropHistory)
+      .values(drop)
+      .returning();
+    return record;
+  }
+
+  async getPlayerDropHistory(playerId: string, limit: number = 50): Promise<DropHistory[]> {
+    return await this.db
+      .select()
+      .from(dropHistory)
+      .where(eq(dropHistory.playerId, playerId))
+      .orderBy(desc(dropHistory.droppedAt))
+      .limit(limit);
+  }
+
+  async getDropStatistics(playerId: string): Promise<{
+    totalDrops: number;
+    byRarity: Record<string, number>;
+    mostCommon: { itemId: string; count: number }[];
+    recentDrops: DropHistory[];
+  }> {
+    const allDrops = await this.db
+      .select()
+      .from(dropHistory)
+      .where(eq(dropHistory.playerId, playerId));
+
+    // Count by rarity
+    const byRarity: Record<string, number> = {};
+    const itemCounts: Record<string, number> = {};
+    
+    for (const drop of allDrops) {
+      byRarity[drop.rarity] = (byRarity[drop.rarity] || 0) + drop.quantity;
+      itemCounts[drop.itemId] = (itemCounts[drop.itemId] || 0) + drop.quantity;
+    }
+
+    // Find most common items
+    const mostCommon = Object.entries(itemCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([itemId, count]) => ({ itemId, count }));
+
+    // Get recent drops
+    const recentDrops = await this.getPlayerDropHistory(playerId, 10);
+
+    return {
+      totalDrops: allDrops.reduce((sum, drop) => sum + drop.quantity, 0),
+      byRarity,
+      mostCommon,
+      recentDrops,
+    };
   }
 }
 

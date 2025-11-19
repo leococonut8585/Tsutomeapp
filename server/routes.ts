@@ -623,6 +623,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
             
+            // ドロップ履歴を記録
+            for (const drop of itemDrops) {
+              await storage.recordDropHistory({
+                playerId: player.id,
+                itemId: drop.item.id,
+                tsutomeId: id,
+                quantity: drop.quantity,
+                rarity: drop.item.rarity || 'common',
+                isBonus: drop.isBonus || false,
+              });
+            }
+            
             // レスポンス用のドロップ情報を整形
             drops = itemDrops.map(drop => ({
               item: {
@@ -1642,6 +1654,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching inventories:", error);
       res.status(500).json({ error: "Failed to fetch inventories" });
+    }
+  });
+
+  // Drop history and statistics routes
+  app.get("/api/drop-history", async (req, res) => {
+    try {
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const history = await storage.getPlayerDropHistory(player.id);
+      
+      // Enrich with item details
+      const historyWithItems = await Promise.all(
+        history.map(async (drop) => {
+          const item = await storage.getItem(drop.itemId);
+          return {
+            ...drop,
+            item
+          };
+        })
+      );
+      
+      res.json(historyWithItems);
+    } catch (error) {
+      console.error("Error fetching drop history:", error);
+      res.status(500).json({ error: "Failed to fetch drop history" });
+    }
+  });
+
+  app.get("/api/drop-statistics", async (req, res) => {
+    try {
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const statistics = await storage.getDropStatistics(player.id);
+      
+      // Enrich most common items with item details
+      const mostCommonWithItems = await Promise.all(
+        statistics.mostCommon.map(async (entry) => {
+          const item = await storage.getItem(entry.itemId);
+          return {
+            ...entry,
+            item
+          };
+        })
+      );
+      
+      // Enrich recent drops with item details
+      const recentDropsWithItems = await Promise.all(
+        statistics.recentDrops.map(async (drop) => {
+          const item = await storage.getItem(drop.itemId);
+          return {
+            ...drop,
+            item
+          };
+        })
+      );
+      
+      res.json({
+        ...statistics,
+        mostCommon: mostCommonWithItems,
+        recentDrops: recentDropsWithItems
+      });
+    } catch (error) {
+      console.error("Error fetching drop statistics:", error);
+      res.status(500).json({ error: "Failed to fetch drop statistics" });
     }
   });
 

@@ -11,6 +11,7 @@ import { Player } from "@shared/schema";
 import { useLocation } from "wouter";
 import { JobChangeModal } from "@/components/job-change-modal";
 import { getJobById, getJobIcon } from "@/lib/jobs";
+import { DropStatistics } from "@/components/drop-statistics";
 
 export default function ProfilePage() {
   const [, setLocation] = useLocation();
@@ -233,6 +234,9 @@ export default function ProfilePage() {
                     </div>
                   </Card>
                 </div>
+
+                {/* ドロップ統計 */}
+                <DropStatistics />
               </>
             ) : (
               <div className="bg-card rounded-xl p-12 text-center">

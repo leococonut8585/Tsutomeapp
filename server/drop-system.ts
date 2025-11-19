@@ -41,7 +41,7 @@ const JOB_DROP_BONUSES: Record<string, { chanceBonus: number; rarityBonus: Recor
     rarityBonus: { material: 25 }, // 素材ドロップ率 +25%
   },
   scholar: {
-    chanceBonus: 25, // 追加ドロップチャンス +25%
+    chanceBonus: 0, // 学者はドロップ率ボーナスなし（コインボーナスは別途処理）
     rarityBonus: {},
   },
   guardian: {
@@ -50,7 +50,7 @@ const JOB_DROP_BONUSES: Record<string, { chanceBonus: number; rarityBonus: Recor
   },
   mystic: {
     chanceBonus: 0,
-    rarityBonus: { legendary: 100, epic: 50 }, // レアドロップ率2倍
+    rarityBonus: { rare: 100, epic: 100, legendary: 100 }, // レアドロップ率2倍（rare以上すべて2倍）
   },
 };
 
