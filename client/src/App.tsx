@@ -8,7 +8,7 @@ import { InstallPrompt } from "@/components/install-prompt";
 import { OfflineIndicator } from "@/components/offline-indicator";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useServiceWorker } from "@/hooks/use-pwa";
-import { useEffect } from "react";
+import { useEffect, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -63,7 +63,7 @@ function App() {
 }
 
 // PWA Provider component for service worker management
-function PWAProvider({ children }: { children: React.ReactNode }) {
+function PWAProvider({ children }: { children: ReactNode }) {
   const { updateAvailable, skipWaiting } = useServiceWorker();
   const { toast } = useToast();
 
