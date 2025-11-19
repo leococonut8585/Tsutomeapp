@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, AlertCircle, Loader2, Flame } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Tsutome } from "@shared/schema";
+import { DropAnimation } from "./drop-animation";
 
 interface TaskCompletionDialogProps {
   open: boolean;
@@ -31,6 +32,8 @@ export function TaskCompletionDialog({
     error?: string;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDropAnimation, setShowDropAnimation] = useState(false);
+  const [droppedItems, setDroppedItems] = useState<any[]>([]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +58,12 @@ export function TaskCompletionDialog({
             feedback: feedback,
             bonusMultiplier: bonusMultiplier
           });
+          
+          // ドロップアイテムがある場合はアニメーションを表示
+          if (result.drops && result.drops.length > 0) {
+            setDroppedItems(result.drops);
+            setShowDropAnimation(true);
+          }
           
           // トーストで成功を表示
           toast({
@@ -99,12 +108,21 @@ export function TaskCompletionDialog({
             )
           });
           
-          // 3秒後に自動的に閉じる
-          setTimeout(() => {
-            setCompletionReport("");
-            setVerificationResult(null);
-            onOpenChange(false);
-          }, 3000);
+          // ドロップがなければ3秒後に自動的に閉じる
+          if (!result.drops || result.drops.length === 0) {
+            setTimeout(() => {
+              setCompletionReport("");
+              setVerificationResult(null);
+              onOpenChange(false);
+            }, 3000);
+          } else {
+            // ドロップがある場合はダイアログだけ閉じる
+            setTimeout(() => {
+              setCompletionReport("");
+              setVerificationResult(null);
+              onOpenChange(false);
+            }, 1000);
+          }
         }
       } else {
         // エラーまたは審査不合格
@@ -160,7 +178,8 @@ export function TaskCompletionDialog({
   if (!tsutome) return null;
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <>
+      <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-md mx-6 p-8 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-2xl">務メ完了報告</DialogTitle>
@@ -270,5 +289,15 @@ export function TaskCompletionDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    <DropAnimation 
+      drops={droppedItems} 
+      open={showDropAnimation} 
+      onClose={() => {
+        setShowDropAnimation(false);
+        setDroppedItems([]);
+      }}
+    />
+    </>
   );
 }
