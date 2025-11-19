@@ -52,8 +52,10 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
     e.preventDefault();
 
     try {
+      let result;
+      
       if (taskType === "tsutome") {
-        await createTsutome.mutateAsync({
+        result = await createTsutome.mutateAsync({
           title,
           deadline,
           genre,
@@ -65,7 +67,7 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
           playerId: "", // サーバー側で設定
         });
       } else if (taskType === "shuren") {
-        await createShuren.mutateAsync({
+        result = await createShuren.mutateAsync({
           title,
           genre,
           repeatInterval,
@@ -76,7 +78,7 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
           playerId: "", // サーバー側で設定
         });
       } else if (taskType === "shihan") {
-        await createShihan.mutateAsync({
+        result = await createShihan.mutateAsync({
           title,
           genre,
           startDate: new Date(),
@@ -85,7 +87,7 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
           playerId: "", // サーバー側で設定
         });
       } else if (taskType === "shikaku") {
-        await createShikaku.mutateAsync({
+        result = await createShikaku.mutateAsync({
           title,
           difficulty,
           assassinName: "", // AIが生成
@@ -94,16 +96,27 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
       }
 
       // 成功時のみフォームをリセットしてダイアログを閉じる
-      setTitle("");
-      setGenre("hobby");
-      setDifficulty("auto");
-      setDeadline(addDays(new Date(), 7));
-      setRepeatInterval(1);
-      setTargetDate(addDays(new Date(), 365));
-      onOpenChange(false);
+      // resultが存在すれば成功とみなす
+      if (result) {
+        setTitle("");
+        setGenre("hobby");
+        setDifficulty("auto");
+        setDeadline(addDays(new Date(), 7));
+        setRepeatInterval(1);
+        setTargetDate(addDays(new Date(), 365));
+        
+        // 少し遅延を入れてからダイアログを閉じる（トースト表示を確実にするため）
+        setTimeout(() => {
+          onOpenChange(false);
+        }, 100);
+      }
     } catch (error) {
       // エラーが発生した場合はダイアログを開いたままにする
       console.error("Task creation error:", error);
+      // エラーの詳細情報も含める
+      if (error instanceof Error) {
+        console.error("Error details:", error.message);
+      }
     }
   };
 
