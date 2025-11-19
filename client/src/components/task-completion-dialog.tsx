@@ -68,9 +68,33 @@ export function TaskCompletionDialog({
                   </div>
                 )}
                 <div className="text-xs text-muted-foreground">
-                  経験値: +{Math.floor((result.rewards?.baseExp || 0) * bonusMultiplier)} 
-                  / コイン: +{Math.floor((result.rewards?.baseCoins || 0) * bonusMultiplier)}
+                  経験値: +{Math.floor((result.rewards?.exp || 0))} 
+                  / コイン: +{Math.floor((result.rewards?.coins || 0))}
                 </div>
+                {/* ドロップアイテム表示 */}
+                {result.drops && result.drops.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-border">
+                    <div className="text-xs font-semibold text-primary">📦 ドロップアイテム</div>
+                    {result.drops.map((drop: any, index: number) => (
+                      <div key={index} className="flex items-center gap-1 text-xs">
+                        <span className={`
+                          ${drop.item.rarity === 'legendary' ? 'text-yellow-600' : 
+                            drop.item.rarity === 'epic' ? 'text-purple-600' : 
+                            drop.item.rarity === 'rare' ? 'text-blue-600' : 'text-gray-600'}
+                        `}>
+                          {drop.item.rarity === 'legendary' ? '🌟' : 
+                           drop.item.rarity === 'epic' ? '💜' : 
+                           drop.item.rarity === 'rare' ? '💙' : '⚪'}
+                        </span>
+                        <span>{drop.item.name}</span>
+                        <span className="text-muted-foreground">x{drop.quantity}</span>
+                        {drop.isBonus && (
+                          <span className="text-yellow-600 text-xs">(ボーナス)</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )
           });
