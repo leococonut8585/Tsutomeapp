@@ -17,13 +17,13 @@ const DIFFICULTY_DROP_CHANCE: Record<string, number> = {
   extreme: 60,   // 60% chance - 最高難度の達成感
 };
 
-// 難易度別のレアリティウェイト
+// 難易度別のレアリティウェイト（高難易度でのレア出現率改善）
 const DIFFICULTY_RARITY_WEIGHTS: Record<string, Record<string, number>> = {
-  easy: { common: 85, rare: 14, epic: 1, legendary: 0 },
-  normal: { common: 70, rare: 25, epic: 4, legendary: 1 },
-  hard: { common: 50, rare: 35, epic: 12, legendary: 3 },
-  veryHard: { common: 30, rare: 40, epic: 25, legendary: 5 },
-  extreme: { common: 20, rare: 35, epic: 35, legendary: 10 },
+  easy: { common: 90, rare: 10, epic: 0, legendary: 0 },
+  normal: { common: 75, rare: 22, epic: 3, legendary: 0 },
+  hard: { common: 55, rare: 30, epic: 13, legendary: 2 },
+  veryHard: { common: 35, rare: 35, epic: 23, legendary: 7 },
+  extreme: { common: 20, rare: 30, epic: 35, legendary: 15 },  // レジェンダリー率向上
 };
 
 // 職業別のドロップボーナス
