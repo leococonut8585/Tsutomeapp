@@ -51,55 +51,60 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (taskType === "tsutome") {
-      await createTsutome.mutateAsync({
-        title,
-        deadline,
-        genre,
-        startDate: new Date(),
-        difficulty,
-        monsterName: "", // AIが生成
-        linkedShurenId: null,
-        linkedShihanId: null,
-        playerId: "", // サーバー側で設定
-      });
-    } else if (taskType === "shuren") {
-      await createShuren.mutateAsync({
-        title,
-        genre,
-        repeatInterval,
-        startDate: new Date(),
-        dataTitle: "回数",
-        dataUnit: "回",
-        trainingName: "", // AIが生成
-        playerId: "", // サーバー側で設定
-      });
-    } else if (taskType === "shihan") {
-      await createShihan.mutateAsync({
-        title,
-        genre,
-        startDate: new Date(),
-        targetDate,
-        masterName: "", // AIが生成
-        playerId: "", // サーバー側で設定
-      });
-    } else if (taskType === "shikaku") {
-      await createShikaku.mutateAsync({
-        title,
-        difficulty,
-        assassinName: "", // AIが生成
-        playerId: "", // サーバー側で設定
-      });
-    }
+    try {
+      if (taskType === "tsutome") {
+        await createTsutome.mutateAsync({
+          title,
+          deadline,
+          genre,
+          startDate: new Date(),
+          difficulty,
+          monsterName: "", // AIが生成
+          linkedShurenId: null,
+          linkedShihanId: null,
+          playerId: "", // サーバー側で設定
+        });
+      } else if (taskType === "shuren") {
+        await createShuren.mutateAsync({
+          title,
+          genre,
+          repeatInterval,
+          startDate: new Date(),
+          dataTitle: "回数",
+          dataUnit: "回",
+          trainingName: "", // AIが生成
+          playerId: "", // サーバー側で設定
+        });
+      } else if (taskType === "shihan") {
+        await createShihan.mutateAsync({
+          title,
+          genre,
+          startDate: new Date(),
+          targetDate,
+          masterName: "", // AIが生成
+          playerId: "", // サーバー側で設定
+        });
+      } else if (taskType === "shikaku") {
+        await createShikaku.mutateAsync({
+          title,
+          difficulty,
+          assassinName: "", // AIが生成
+          playerId: "", // サーバー側で設定
+        });
+      }
 
-    // フォームをリセット
-    setTitle("");
-    setGenre("hobby");
-    setDifficulty("auto");
-    setDeadline(addDays(new Date(), 7));
-    setRepeatInterval(1);
-    setTargetDate(addDays(new Date(), 365));
-    onOpenChange(false);
+      // 成功時のみフォームをリセットしてダイアログを閉じる
+      setTitle("");
+      setGenre("hobby");
+      setDifficulty("auto");
+      setDeadline(addDays(new Date(), 7));
+      setRepeatInterval(1);
+      setTargetDate(addDays(new Date(), 365));
+      onOpenChange(false);
+    } catch (error) {
+      // エラーが発生した場合はダイアログを開いたままにする
+      console.error("Task creation error:", error);
+    }
   };
 
   const titleMap = {

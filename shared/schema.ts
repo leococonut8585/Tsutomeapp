@@ -173,7 +173,12 @@ export const inventories = pgTable("inventories", {
 
 // Insert Schemas
 export const insertPlayerSchema = createInsertSchema(players).omit({ id: true, createdAt: true });
-export const insertTsutomeSchema = createInsertSchema(tsutomes).omit({ id: true, createdAt: true, completed: true, completedAt: true, cancelled: true, strengthLevel: true });
+export const insertTsutomeSchema = createInsertSchema(tsutomes)
+  .omit({ id: true, createdAt: true, completed: true, completedAt: true, cancelled: true, strengthLevel: true })
+  .extend({
+    monsterName: z.string().optional(), // AI生成フィールドなのでオプショナルにする
+    monsterImageUrl: z.string().nullable().optional(),
+  });
 export const insertShurenSchema = createInsertSchema(shurens).omit({ id: true, createdAt: true, continuousDays: true, totalDays: true, lastCompletedAt: true, missedCount: true, active: true });
 export const insertShihanSchema = createInsertSchema(shihans).omit({ id: true, createdAt: true, completed: true, completedAt: true });
 export const insertShikakuSchema = createInsertSchema(shikakus).omit({ id: true, createdAt: true, completed: true, completedAt: true, expiresAt: true });

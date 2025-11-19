@@ -288,7 +288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...validatedData,
         difficulty: finalDifficulty, // AI判定後の難易度を使用
         playerId: player.id,
-        monsterName,
+        monsterName: monsterName || "妖怪", // デフォルト値を設定
         monsterImageUrl,
       });
 
