@@ -152,8 +152,12 @@ export const items = pgTable("items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description").notNull(),
-  itemType: text("item_type").notNull(), // consumable, material, equipment
+  itemType: text("item_type").notNull(), // consumable, material, equipment, weapon, armor, accessory
   price: integer("price").notNull(),
+  // ドロップシステム
+  rarity: text("rarity").notNull().default("common"), // common, rare, epic, legendary
+  droppable: boolean("droppable").notNull().default(false), // ドロップ可能かどうか
+  dropRate: integer("drop_rate").default(10), // 基本ドロップ率(%)
   // 効果
   hpRestore: integer("hp_restore").default(0),
   statBoost: text("stat_boost"), // JSON: {wisdom: 5, strength: 3}
