@@ -294,6 +294,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/tsutomes/:id/complete", async (req, res) => {
     try {
       const { id } = req.params;
+      const { completionReport } = req.body; // 完了報告を受け取る
+      
       const tsutome = await storage.getTsutome(id);
       if (!tsutome) {
         return res.status(404).json({ error: "Tsutome not found" });
@@ -310,6 +312,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const player = await storage.getPlayer(tsutome.playerId);
       if (!player) {
         return res.status(404).json({ error: "Player not found" });
+      }
+
+      // AI審査を実行（完了報告がある場合）
+      let aiVerificationResult = {
+        approved: true,
+        feedback: "自動承認",
+        bonusMultiplier: 1.0
+      };
+
+      if (completionReport && completionReport.trim()) {
+        console.log(`AI verification for task ${id}: Starting...`);
+        const { verifyTaskCompletionAdvanced } = await import("./ai");
+        
+        aiVerificationResult = await verifyTaskCompletionAdvanced(
+          tsutome.title,
+          null, // tsutomeテーブルにdescriptionフィールドはない
+          completionReport,
+          tsutome.monsterName || "妖怪",
+          tsutome.difficulty
+        );
+        
+        console.log(`AI verification result for task ${id}:`, aiVerificationResult);
+        
+        // 審査に不合格の場合
+        if (!aiVerificationResult.approved) {
+          return res.status(400).json({
+            error: "タスク完了が承認されませんでした",
+            feedback: aiVerificationResult.feedback,
+            requiresRevision: true
+          });
+        }
       }
 
       // 報酬計算
@@ -388,6 +421,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Apply link bonus to base rewards
       expGain = Math.floor(expGain * linkBonusMultiplier);
       coinsGain = Math.floor(coinsGain * linkBonusMultiplier);
+      
+      // Apply AI verification bonus/penalty
+      expGain = Math.floor(expGain * aiVerificationResult.bonusMultiplier);
+      coinsGain = Math.floor(coinsGain * aiVerificationResult.bonusMultiplier);
 
       // Job-specific bonuses
       if (player.job === "samurai" && ["exercise", "work"].includes(tsutome.genre)) {
@@ -478,6 +515,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           levelUp: newLevel > player.level,
           newLevel,
           bonusInfo: bonusInfo,
+        },
+        aiVerification: {
+          feedback: aiVerificationResult.feedback,
+          bonusMultiplier: aiVerificationResult.bonusMultiplier,
         },
       });
     } catch (error) {
