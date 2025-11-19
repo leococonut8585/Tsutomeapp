@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BottomNav } from "@/components/bottom-nav";
 import { InstallPrompt } from "@/components/install-prompt";
 import { OfflineIndicator } from "@/components/offline-indicator";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { useServiceWorker } from "@/hooks/use-pwa";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -43,19 +44,21 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <PWAProvider>
-          <div className="relative min-h-screen">
-            <OfflineIndicator />
-            <Router />
-            <BottomNav />
-            <InstallPrompt />
-          </div>
-          <Toaster />
-        </PWAProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <PWAProvider>
+            <div className="relative min-h-screen">
+              <OfflineIndicator />
+              <Router />
+              <BottomNav />
+              <InstallPrompt />
+            </div>
+            <Toaster />
+          </PWAProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

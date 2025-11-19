@@ -44,7 +44,9 @@ export function TsutomeGenerateDialog({
   // Reset form when dialog opens with new source
   useEffect(() => {
     if (open) {
-      console.log("Dialog opened, resetting form for:", { sourceType, sourceId: source?.id });
+      if (import.meta.env.DEV) {
+        console.log("Dialog opened, resetting form for:", { sourceType, sourceId: source?.id });
+      }
       setTitle("");
       setDifficulty("normal");
       setDeadline(new Date());
@@ -54,18 +56,24 @@ export function TsutomeGenerateDialog({
   // 師範から務メを生成
   const generateFromShihan = useMutation({
     mutationFn: async (data: { title: string; deadline: Date; difficulty: string }) => {
-      console.log("Generating tsutome from shihan:", { shihanId: source?.id, data });
+      if (import.meta.env.DEV) {
+        console.log("Generating tsutome from shihan:", { shihanId: source?.id, data });
+      }
       const res = await apiRequest(
         "POST",
         `/api/shihans/${source?.id}/generate-tsutome`,
         data
       );
       const result = await res.json();
-      console.log("Tsutome generation result:", result);
+      if (import.meta.env.DEV) {
+        console.log("Tsutome generation result:", result);
+      }
       return result;
     },
     onSuccess: (data) => {
-      console.log("Tsutome generated successfully:", data);
+      if (import.meta.env.DEV) {
+        console.log("Tsutome generated successfully:", data);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/tsutomes"] });
       queryClient.invalidateQueries({ queryKey: [`/api/shihans/${source?.id}/progress`] });
       toast({
@@ -76,7 +84,9 @@ export function TsutomeGenerateDialog({
       resetForm();
     },
     onError: (error: any) => {
-      console.error("Error generating tsutome from shihan:", error);
+      if (import.meta.env.DEV) {
+        console.error("Error generating tsutome from shihan:", error);
+      }
       toast({
         title: "エラー",
         description: error?.message || "務メの生成に失敗しました",
@@ -88,18 +98,24 @@ export function TsutomeGenerateDialog({
   // 修練から務メを生成
   const generateFromShuren = useMutation({
     mutationFn: async () => {
-      console.log("Generating tsutome from shuren:", { shurenId: source?.id });
+      if (import.meta.env.DEV) {
+        console.log("Generating tsutome from shuren:", { shurenId: source?.id });
+      }
       const res = await apiRequest(
         "POST",
         `/api/shurens/${source?.id}/generate-tsutome`,
         {}
       );
       const result = await res.json();
-      console.log("Tsutome generation result:", result);
+      if (import.meta.env.DEV) {
+        console.log("Tsutome generation result:", result);
+      }
       return result;
     },
     onSuccess: (data) => {
-      console.log("Tsutome generated successfully:", data);
+      if (import.meta.env.DEV) {
+        console.log("Tsutome generated successfully:", data);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/tsutomes"] });
       toast({
         title: "今日の修練タスクを生成しました",
@@ -109,7 +125,9 @@ export function TsutomeGenerateDialog({
       resetForm();
     },
     onError: (error: any) => {
-      console.error("Error generating tsutome from shuren:", error);
+      if (import.meta.env.DEV) {
+        console.error("Error generating tsutome from shuren:", error);
+      }
       toast({
         title: "エラー",
         description: error?.message || "務メの生成に失敗しました",
@@ -125,11 +143,15 @@ export function TsutomeGenerateDialog({
   };
 
   const handleSubmit = () => {
-    console.log("handleSubmit called:", { sourceType, source, title, deadline, difficulty });
+    if (import.meta.env.DEV) {
+      console.log("handleSubmit called:", { sourceType, source, title, deadline, difficulty });
+    }
     
     if (sourceType === "shihan" && source) {
       if (!title || !deadline) {
-        console.error("Validation failed:", { title, deadline });
+        if (import.meta.env.DEV) {
+          console.error("Validation failed:", { title, deadline });
+        }
         toast({
           title: "入力エラー",
           description: "タイトルと期限を入力してください",
@@ -137,13 +159,19 @@ export function TsutomeGenerateDialog({
         });
         return;
       }
-      console.log("Submitting shihan generation:", { title, deadline, difficulty });
+      if (import.meta.env.DEV) {
+        console.log("Submitting shihan generation:", { title, deadline, difficulty });
+      }
       generateFromShihan.mutate({ title, deadline, difficulty });
     } else if (sourceType === "shuren" && source) {
-      console.log("Submitting shuren generation");
+      if (import.meta.env.DEV) {
+        console.log("Submitting shuren generation");
+      }
       generateFromShuren.mutate();
     } else {
-      console.error("Invalid state:", { sourceType, source });
+      if (import.meta.env.DEV) {
+        console.error("Invalid state:", { sourceType, source });
+      }
     }
   };
 

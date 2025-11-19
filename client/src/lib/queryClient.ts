@@ -12,7 +12,10 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  console.log(`API Request: ${method} ${url}`, data);
+  // Only log in development mode
+  if (import.meta.env.DEV) {
+    console.log(`API Request: ${method} ${url}`, data);
+  }
   
   try {
     const res = await fetch(url, {
@@ -22,12 +25,16 @@ export async function apiRequest(
       credentials: "include",
     });
 
-    console.log(`API Response: ${res.status} ${res.statusText}`);
+    if (import.meta.env.DEV) {
+      console.log(`API Response: ${res.status} ${res.statusText}`);
+    }
     
     await throwIfResNotOk(res);
     return res;
   } catch (error) {
-    console.error(`API Request failed: ${method} ${url}`, error);
+    if (import.meta.env.DEV) {
+      console.error(`API Request failed: ${method} ${url}`, error);
+    }
     throw error;
   }
 }

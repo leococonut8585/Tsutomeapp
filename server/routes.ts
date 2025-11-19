@@ -29,24 +29,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { prompt, type } = req.body;
       
       if (!prompt || !type) {
-        return res.status(400).json({ error: "prompt and type are required" });
+        return res.status(400).json({ error: "プロンプトとタイプは必須です" });
       }
       
       const validTypes = ["monster", "training", "master", "assassin", "boss", "story"];
       if (!validTypes.includes(type)) {
-        return res.status(400).json({ error: "Invalid type. Must be one of: " + validTypes.join(", ") });
+        return res.status(400).json({ error: "無効なタイプです。次のいずれかを指定してください: " + validTypes.join(", ") });
       }
       
       const imageUrl = await generateImage(prompt, type);
       
       if (!imageUrl) {
-        return res.status(500).json({ error: "Failed to generate image" });
+        return res.status(500).json({ error: "画像の生成に失敗しました" });
       }
       
       res.json({ imageUrl });
     } catch (error) {
       routesLogger.error("Error generating image:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -55,12 +55,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       res.json(player);
     } catch (error) {
       routesLogger.error("Error fetching player:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -70,12 +70,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = req.body;
       const player = await storage.updatePlayer(id, updates);
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       res.json(player);
     } catch (error) {
       routesLogger.error("Error updating player:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -85,17 +85,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { jobId } = req.body;
       
       if (!jobId) {
-        return res.status(400).json({ error: "Job ID is required" });
+        return res.status(400).json({ error: "職業IDは必須です" });
       }
       
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       
       // Check if changing to the same job
       if (player.job === jobId) {
-        return res.status(400).json({ error: "Already in this job" });
+        return res.status(400).json({ error: "既にこの職業に就いています" });
       }
       
       // Check cost (first job change is free)
@@ -150,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       routesLogger.error("Error changing job:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -159,7 +159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       const tsutomes = await storage.getAllTsutomes(player.id);
       
@@ -230,7 +230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(enrichedTsutomes);
     } catch (error) {
       routesLogger.error("Error fetching tsutomes:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -240,7 +240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const player = await storage.getCurrentPlayer();
       if (!player) {
         routesLogger.debug("POST /api/tsutomes - Player not found");
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
 
       routesLogger.debug("POST /api/tsutomes - Player found:", player.id);
@@ -257,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validation = insertTsutomeSchema.safeParse(data);
       if (!validation.success) {
         routesLogger.debug("POST /api/tsutomes - Validation failed:", validation.error);
-        return res.status(400).json({ error: "Invalid input", details: validation.error });
+        return res.status(400).json({ error: "入力が無効です", details: validation.error });
       }
 
       const validatedData = validation.data;
@@ -346,7 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(response);
     } catch (error) {
       routesLogger.error("Error creating tsutome:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -357,20 +357,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const tsutome = await storage.getTsutome(id);
       if (!tsutome) {
-        return res.status(404).json({ error: "Tsutome not found" });
+        return res.status(404).json({ error: "務メが見つかりません" });
       }
 
       // 既に完了済みまたはキャンセル済みのチェック
       if (tsutome.completed) {
-        return res.status(400).json({ error: "Task already completed" });
+        return res.status(400).json({ error: "タスクは既に完了しています" });
       }
       if (tsutome.cancelled) {
-        return res.status(400).json({ error: "Task was cancelled" });
+        return res.status(400).json({ error: "タスクはキャンセルされています" });
       }
 
       const player = await storage.getPlayer(tsutome.playerId);
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
 
       // AI審査を実行（完了報告がある場合）
@@ -695,7 +695,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       routesLogger.error("Error completing tsutome:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -704,12 +704,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const deleted = await storage.deleteTsutome(id);
       if (!deleted) {
-        return res.status(404).json({ error: "Tsutome not found" });
+        return res.status(404).json({ error: "務メが見つかりません" });
       }
       res.status(204).send();
     } catch (error) {
       routesLogger.error("Error deleting tsutome:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -718,13 +718,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       const shurens = await storage.getAllShurens(player.id);
       res.json(shurens);
     } catch (error) {
       routesLogger.error("Error fetching shurens:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -732,7 +732,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
 
       // 日付文字列をDateオブジェクトに変換
@@ -743,7 +743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validation = insertShurenSchema.safeParse(data);
       if (!validation.success) {
-        return res.status(400).json({ error: "Invalid input", details: validation.error });
+        return res.status(400).json({ error: "入力が無効です", details: validation.error });
       }
 
       const validatedData = validation.data;
@@ -788,7 +788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(response);
     } catch (error) {
       routesLogger.error("Error creating shuren:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -799,12 +799,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const shuren = await storage.getShuren(id);
       if (!shuren) {
-        return res.status(404).json({ error: "Shuren not found" });
+        return res.status(404).json({ error: "修練が見つかりません" });
       }
 
       const player = await storage.getPlayer(shuren.playerId);
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
 
       // 継続日数計算
@@ -866,7 +866,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       routesLogger.error("Error recording shuren:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -875,13 +875,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       const shihans = await storage.getAllShihans(player.id);
       res.json(shihans);
     } catch (error) {
       routesLogger.error("Error fetching shihans:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -889,7 +889,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
 
       // 日付文字列をDateオブジェクトに変換
@@ -901,7 +901,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validation = insertShihanSchema.safeParse(data);
       if (!validation.success) {
-        return res.status(400).json({ error: "Invalid input", details: validation.error });
+        return res.status(400).json({ error: "入力が無効です", details: validation.error });
       }
 
       const validatedData = validation.data;
@@ -946,7 +946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(response);
     } catch (error) {
       routesLogger.error("Error creating shihan:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -955,16 +955,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const shihan = await storage.getShihan(id);
       if (!shihan) {
-        return res.status(404).json({ error: "Shihan not found" });
+        return res.status(404).json({ error: "師範が見つかりません" });
       }
 
       if (shihan.completed) {
-        return res.status(400).json({ error: "Goal already completed" });
+        return res.status(400).json({ error: "目標は既に達成されています" });
       }
 
       const player = await storage.getPlayer(shihan.playerId);
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
 
       // 長期目標完了の報酬（大きめ）
@@ -994,7 +994,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       routesLogger.error("Error completing shihan:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -1009,13 +1009,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const shihan = await storage.getShihan(id);
       if (!shihan) {
         routesLogger.error("Shihan not found:", id);
-        return res.status(404).json({ error: "Shihan not found" });
+        return res.status(404).json({ error: "師範が見つかりません" });
       }
 
       const player = await storage.getCurrentPlayer();
       if (!player) {
         routesLogger.error("Player not found");
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
 
       const { title, deadline, difficulty = "normal" } = req.body;
@@ -1083,7 +1083,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(enrichedTsutome);
     } catch (error) {
       routesLogger.error("Error generating tsutome from shihan:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -1096,13 +1096,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const shuren = await storage.getShuren(id);
       if (!shuren) {
         routesLogger.error("Shuren not found:", id);
-        return res.status(404).json({ error: "Shuren not found" });
+        return res.status(404).json({ error: "修練が見つかりません" });
       }
 
       const player = await storage.getCurrentPlayer();
       if (!player) {
         routesLogger.error("Player not found");
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
 
       // 今日の務メがすでに作成されているかチェック
@@ -1172,7 +1172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(enrichedTsutome);
     } catch (error) {
       routesLogger.error("Error generating tsutome from shuren:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -1187,13 +1187,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (type === "shuren") {
         tsutomes = await storage.getTsutomesByShurenId(id);
       } else {
-        return res.status(400).json({ error: "Invalid type. Must be 'shihan' or 'shuren'" });
+        return res.status(400).json({ error: "無効なタイプです。'shihan'または'shuren'を指定してください" });
       }
 
       res.json(tsutomes);
     } catch (error) {
       routesLogger.error("Error fetching linked tsutomes:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -1203,7 +1203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const shihan = await storage.getShihan(id);
       if (!shihan) {
-        return res.status(404).json({ error: "Shihan not found" });
+        return res.status(404).json({ error: "師範が見つかりません" });
       }
 
       const linkedTsutomes = await storage.getTsutomesByShihanId(id);
@@ -1221,7 +1221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       routesLogger.error("Error fetching shihan progress:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -1230,13 +1230,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       const shikakus = await storage.getAllShikakus(player.id);
       res.json(shikakus);
     } catch (error) {
       routesLogger.error("Error fetching shikakus:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -1244,12 +1244,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
 
       const validation = insertShikakuSchema.safeParse(req.body);
       if (!validation.success) {
-        return res.status(400).json({ error: "Invalid input", details: validation.error });
+        return res.status(400).json({ error: "入力が無効です", details: validation.error });
       }
 
       const validatedData = validation.data;
@@ -1294,7 +1294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(response);
     } catch (error) {
       routesLogger.error("Error creating shikaku:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -1303,21 +1303,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const shikaku = await storage.getShikaku(id);
       if (!shikaku) {
-        return res.status(404).json({ error: "Shikaku not found" });
+        return res.status(404).json({ error: "刺客が見つかりません" });
       }
 
       if (shikaku.completed) {
-        return res.status(400).json({ error: "Task already completed" });
+        return res.status(400).json({ error: "タスクは既に完了しています" });
       }
 
       // 期限切れチェック
       if (new Date() > new Date(shikaku.expiresAt)) {
-        return res.status(400).json({ error: "Task has expired" });
+        return res.status(400).json({ error: "タスクは期限切れです" });
       }
 
       const player = await storage.getPlayer(shikaku.playerId);
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
 
       // 緊急タスク完了の報酬（高報酬）
@@ -1354,7 +1354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       routesLogger.error("Error completing shikaku:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -1363,7 +1363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
 
       let boss = await storage.getCurrentBoss(player.id);
@@ -1392,7 +1392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(boss);
     } catch (error) {
       routesLogger.error("Error fetching boss:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -1401,19 +1401,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const boss = await storage.getBoss(id);
       if (!boss) {
-        return res.status(404).json({ error: "Boss not found" });
+        return res.status(404).json({ error: "ボスが見つかりません" });
       }
 
       const player = await storage.getPlayer(boss.playerId);
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
 
       // 1日1回制限チェック
       const today = new Date().toDateString();
       const lastAttack = boss.lastAttackDate ? new Date(boss.lastAttackDate).toDateString() : null;
       if (lastAttack === today) {
-        return res.status(400).json({ error: "Already attacked today" });
+        return res.status(400).json({ error: "今日はすでに攻撃しました" });
       }
 
       // ダメージ計算
@@ -1500,7 +1500,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       routesLogger.error("Error attacking boss:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -1511,7 +1511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(items);
     } catch (error) {
       routesLogger.error("Error fetching items:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -1520,16 +1520,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const item = await storage.getItem(id);
       if (!item) {
-        return res.status(404).json({ error: "Item not found" });
+        return res.status(404).json({ error: "アイテムが見つかりません" });
       }
 
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
 
       if (player.coins < item.price) {
-        return res.status(400).json({ error: "Not enough coins" });
+        return res.status(400).json({ error: "コインが不足しています" });
       }
 
       await storage.updatePlayer(player.id, {
@@ -1547,7 +1547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ item, inventory });
     } catch (error) {
       routesLogger.error("Error buying item:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -1556,13 +1556,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       const stories = await storage.getAllStories(player.id);
       res.json(stories);
     } catch (error) {
       routesLogger.error("Error fetching stories:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -1571,14 +1571,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const story = await storage.getStory(id);
       if (!story) {
-        return res.status(404).json({ error: "Story not found" });
+        return res.status(404).json({ error: "物語が見つかりません" });
       }
 
       const updatedStory = await storage.updateStory(id, { viewed: true });
       res.json(updatedStory);
     } catch (error) {
       routesLogger.error("Error marking story as viewed:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "内部エラーが発生しました" });
     }
   });
 
@@ -1660,7 +1660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       
       // Get player's inventory items
@@ -1680,7 +1680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(inventoriesWithItems);
     } catch (error) {
       routesLogger.error("Error fetching inventories:", error);
-      res.status(500).json({ error: "Failed to fetch inventories" });
+      res.status(500).json({ error: "インベントリの取得に失敗しました" });
     }
   });
 
@@ -1689,7 +1689,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       
       const history = await storage.getPlayerDropHistory(player.id);
@@ -1708,7 +1708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(historyWithItems);
     } catch (error) {
       routesLogger.error("Error fetching drop history:", error);
-      res.status(500).json({ error: "Failed to fetch drop history" });
+      res.status(500).json({ error: "ドロップ履歴の取得に失敗しました" });
     }
   });
 
@@ -1716,7 +1716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       
       const statistics = await storage.getDropStatistics(player.id);
@@ -1750,7 +1750,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       routesLogger.error("Error fetching drop statistics:", error);
-      res.status(500).json({ error: "Failed to fetch drop statistics" });
+      res.status(500).json({ error: "ドロップ統計の取得に失敗しました" });
     }
   });
 
@@ -1759,7 +1759,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       
       // Get equipped items from inventory
@@ -1777,7 +1777,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(equippedItems);
     } catch (error) {
       routesLogger.error("Error fetching equipment:", error);
-      res.status(500).json({ error: "Failed to fetch equipment" });
+      res.status(500).json({ error: "装備の取得に失敗しました" });
     }
   });
 
@@ -1786,13 +1786,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { itemId } = req.body;
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       
       // Get item details
       const item = await storage.getItem(itemId);
       if (!item) {
-        return res.status(404).json({ error: "Item not found" });
+        return res.status(404).json({ error: "アイテムが見つかりません" });
       }
       
       // Determine slot based on item type
@@ -1804,7 +1804,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (item.itemType === 'accessory') {
         slot = 'accessory';
       } else {
-        return res.status(400).json({ error: "Item cannot be equipped" });
+        return res.status(400).json({ error: "このアイテムは装備できません" });
       }
       
       await storage.equipItem(player.id, itemId, slot);
@@ -1812,7 +1812,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, player: updatedPlayer });
     } catch (error) {
       routesLogger.error("Error equipping item:", error);
-      res.status(500).json({ error: "Failed to equip item" });
+      res.status(500).json({ error: "アイテムの装備に失敗しました" });
     }
   });
 
@@ -1821,7 +1821,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { slot } = req.body;
       const player = await storage.getCurrentPlayer();
       if (!player) {
-        return res.status(404).json({ error: "Player not found" });
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       
       await storage.unequipItem(player.id, slot);
@@ -1829,7 +1829,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, player: updatedPlayer });
     } catch (error) {
       routesLogger.error("Error unequipping item:", error);
-      res.status(500).json({ error: "Failed to unequip item" });
+      res.status(500).json({ error: "アイテムの装備解除に失敗しました" });
     }
   });
 

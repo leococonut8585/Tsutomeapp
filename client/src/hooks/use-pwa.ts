@@ -101,7 +101,9 @@ export function useServiceWorker() {
       .register('/sw.js', { scope: '/' })
       .then(reg => {
         setRegistration(reg);
-        console.log('Service Worker registered');
+        if (import.meta.env.DEV) {
+          console.log('Service Worker registered');
+        }
 
         // Check for updates every hour
         setInterval(() => {
@@ -121,7 +123,9 @@ export function useServiceWorker() {
         });
       })
       .catch(error => {
-        console.error('Service Worker registration failed:', error);
+        if (import.meta.env.DEV) {
+          console.error('Service Worker registration failed:', error);
+        }
       });
 
     // Handle controller change
@@ -165,7 +169,9 @@ export function useOfflineQueue() {
         });
         setQueueSize(count);
       } catch (error) {
-        console.error('Failed to check offline queue:', error);
+        if (import.meta.env.DEV) {
+          console.error('Failed to check offline queue:', error);
+        }
       }
     };
 
