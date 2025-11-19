@@ -589,6 +589,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...growth,
       });
 
+      // アイテムドロップ処理
+      let drops: any[] = [];
+      try {
+        const { calculateItemDrops, prepareInventoryItems } = await import("./drop-system");
+        
+        // ドロップ可能なアイテムを取得
+        const allItems = await storage.getAllItems();
+        const droppableItems = allItems.filter(item => item.droppable);
+        
+        if (droppableItems.length > 0) {
+          // ドロップ計算
+          const itemDrops = calculateItemDrops(tsutome, player, droppableItems);
+          
+          // インベントリに追加
+          if (itemDrops.length > 0) {
+            const inventoryItems = prepareInventoryItems(itemDrops, player.id);
+            
+            // 各アイテムをインベントリに追加
+            for (const invItem of inventoryItems) {
+              // 既存のアイテムがあるか確認
+              const existingInventory = await storage.getPlayerInventory(player.id);
+              const existing = existingInventory.find(inv => inv.itemId === invItem.itemId && !inv.equipped);
+              
+              if (existing) {
+                // 既存のアイテムに数量を追加
+                await storage.updateInventory(existing.id, {
+                  quantity: existing.quantity + invItem.quantity,
+                });
+              } else {
+                // 新しいアイテムとして追加
+                await storage.addToInventory(invItem);
+              }
+            }
+            
+            // レスポンス用のドロップ情報を整形
+            drops = itemDrops.map(drop => ({
+              item: {
+                id: drop.item.id,
+                name: drop.item.name,
+                description: drop.item.description,
+                rarity: drop.item.rarity,
+                itemType: drop.item.itemType,
+                imageUrl: drop.item.imageUrl,
+              },
+              quantity: drop.quantity,
+              isBonus: drop.isBonus,
+            }));
+            
+            console.log(`Task ${id} completion drops:`, drops);
+          }
+        }
+      } catch (dropError) {
+        console.error("Drop processing error:", dropError);
+        // ドロップ処理が失敗してもタスク完了は継続
+      }
+
       // タスク完了
       const updated = await storage.updateTsutome(id, {
         completed: true,
@@ -608,6 +664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           feedback: aiVerificationResult.feedback,
           bonusMultiplier: aiVerificationResult.bonusMultiplier,
         },
+        drops: drops, // ドロップアイテムを追加
       });
     } catch (error) {
       console.error("Error completing tsutome:", error);
