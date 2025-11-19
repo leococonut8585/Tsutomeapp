@@ -252,12 +252,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!finalDifficulty || finalDifficulty === "auto") {
         console.log(`Auto-assessing difficulty for task: ${validatedData.title}`);
         const { assessTaskDifficulty } = await import("./ai");
-        finalDifficulty = await assessTaskDifficulty(
+        const aiDifficulty = await assessTaskDifficulty(
           validatedData.title,
           undefined, // descriptionフィールドは存在しない
           validatedData.genre
         );
-        console.log(`AI assessed difficulty: ${finalDifficulty}`);
+        console.log(`AI assessed difficulty: ${aiDifficulty}`);
+        
+        // AI結果をDBのenumにマッピング
+        const difficultyMap: Record<string, string> = {
+          "easy": "easy",
+          "medium": "normal",
+          "hard": "hard",
+          "legendary": "extreme"
+        };
+        finalDifficulty = difficultyMap[aiDifficulty] || "normal";
+        console.log(`Mapped to DB enum: ${finalDifficulty}`);
       }
 
       // AI生成: 妖怪名
