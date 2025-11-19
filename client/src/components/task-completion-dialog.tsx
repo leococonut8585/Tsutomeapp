@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, AlertCircle, Loader2, Flame } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import { Tsutome } from "@shared/schema";
 
 interface TaskCompletionDialogProps {
@@ -46,10 +47,32 @@ export function TaskCompletionDialog({
       if (result && !result.error) {
         // AI審査結果を表示
         if (result.rewards) {
+          const bonusMultiplier = result.aiVerificationResult?.bonusMultiplier || 1.0;
+          const feedback = result.aiVerificationResult?.feedback || "審査完了";
+          
           setVerificationResult({
             approved: true,
-            feedback: result.aiVerificationResult?.feedback || "審査完了",
-            bonusMultiplier: result.aiVerificationResult?.bonusMultiplier || 1.0
+            feedback: feedback,
+            bonusMultiplier: bonusMultiplier
+          });
+          
+          // トーストで成功を表示
+          toast({
+            title: "✅ 討伐成功！",
+            description: (
+              <div className="space-y-1">
+                <div>{feedback}</div>
+                {bonusMultiplier !== 1.0 && (
+                  <div className="font-semibold text-orange-600 dark:text-orange-400">
+                    🔥 報酬{bonusMultiplier}倍
+                  </div>
+                )}
+                <div className="text-xs text-muted-foreground">
+                  経験値: +{Math.floor((result.rewards?.baseExp || 0) * bonusMultiplier)} 
+                  / コイン: +{Math.floor((result.rewards?.baseCoins || 0) * bonusMultiplier)}
+                </div>
+              </div>
+            )
           });
           
           // 3秒後に自動的に閉じる
@@ -61,10 +84,19 @@ export function TaskCompletionDialog({
         }
       } else {
         // エラーまたは審査不合格
+        const feedback = result?.feedback || result?.error || "タスク完了が承認されませんでした";
+        
         setVerificationResult({
           approved: false,
-          feedback: result?.feedback || result?.error || "タスク完了が承認されませんでした",
+          feedback: feedback,
           error: result?.error
+        });
+        
+        // トーストで失敗を表示
+        toast({
+          title: "❌ 討伐失敗",
+          description: feedback,
+          variant: "destructive"
         });
       }
     } catch (error: any) {
