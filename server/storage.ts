@@ -701,4 +701,10 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// DB対応の実装
+import { DbStorage } from "./db-storage";
+
+// PostgreSQLが設定されている場合はDbStorageを使用、そうでなければMemStorage
+export const storage = process.env.DATABASE_URL 
+  ? new DbStorage() 
+  : new MemStorage();
