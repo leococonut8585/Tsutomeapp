@@ -551,9 +551,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let newLevel = player.level;
       let remainingExp = newExp;
 
-      // レベルアップ処理
-      while (remainingExp >= newLevel * 100) {
-        remainingExp -= newLevel * 100;
+      // レベルアップ処理（改善された計算式）
+      // レベル1-10: 100 * level
+      // レベル11-20: 150 * level
+      // レベル21-30: 200 * level
+      // レベル31+: 250 * level
+      const getExpToNext = (level: number) => {
+        if (level <= 10) return level * 100;
+        if (level <= 20) return level * 150;
+        if (level <= 30) return level * 200;
+        return level * 250;
+      };
+      
+      while (remainingExp >= getExpToNext(newLevel)) {
+        remainingExp -= getExpToNext(newLevel);
         newLevel++;
       }
       
