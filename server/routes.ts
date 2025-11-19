@@ -823,9 +823,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newContinuousDays = 1;
       }
 
-      // 報酬
-      const expGain = 30 + newContinuousDays * 5;
-      const coinsGain = 15 + newContinuousDays * 2;
+      // 報酬（連続ボーナス強化）
+      // 基礎報酬 + 連続日数ボーナス（段階的に増加）
+      let continuousBonus = 0;
+      if (newContinuousDays >= 30) {
+        continuousBonus = 50; // 30日以上: +50 XP
+      } else if (newContinuousDays >= 14) {
+        continuousBonus = 30; // 14日以上: +30 XP
+      } else if (newContinuousDays >= 7) {
+        continuousBonus = 15; // 7日以上: +15 XP
+      } else if (newContinuousDays >= 3) {
+        continuousBonus = 5;  // 3日以上: +5 XP
+      }
+      
+      const expGain = 30 + continuousBonus + Math.floor(newContinuousDays * 2);
+      const coinsGain = 20 + Math.floor(newContinuousDays * 3);
 
       await storage.updatePlayer(player.id, {
         exp: player.exp + expGain,
