@@ -10,6 +10,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { ja } from "date-fns/locale";
 import { useCreateTsutome, useCreateShuren, useCreateShihan, useCreateShikaku } from "@/hooks/use-tasks";
+import { toast } from "@/hooks/use-toast";
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -50,12 +51,29 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!title.trim()) {
+      toast({
+        title: "エラー",
+        description: "タイトルを入力してください",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    console.log("Submitting task:", { taskType, title, difficulty, genre });
 
     try {
-      let result;
-      
       if (taskType === "tsutome") {
-        result = await createTsutome.mutateAsync({
+        console.log("Creating tsutome with data:", {
+          title,
+          deadline,
+          genre,
+          difficulty,
+          startDate: new Date(),
+        });
+        
+        await createTsutome.mutateAsync({
           title,
           deadline,
           genre,
@@ -67,7 +85,7 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
           playerId: "", // サーバー側で設定
         });
       } else if (taskType === "shuren") {
-        result = await createShuren.mutateAsync({
+        await createShuren.mutateAsync({
           title,
           genre,
           repeatInterval,
@@ -78,7 +96,7 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
           playerId: "", // サーバー側で設定
         });
       } else if (taskType === "shihan") {
-        result = await createShihan.mutateAsync({
+        await createShihan.mutateAsync({
           title,
           genre,
           startDate: new Date(),
@@ -87,7 +105,7 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
           playerId: "", // サーバー側で設定
         });
       } else if (taskType === "shikaku") {
-        result = await createShikaku.mutateAsync({
+        await createShikaku.mutateAsync({
           title,
           difficulty,
           assassinName: "", // AIが生成
@@ -96,26 +114,36 @@ export function TaskFormDialog({ open, onOpenChange, taskType }: TaskFormDialogP
       }
 
       // 成功時のみフォームをリセットしてダイアログを閉じる
-      // resultが存在すれば成功とみなす
-      if (result) {
-        setTitle("");
-        setGenre("hobby");
-        setDifficulty("auto");
-        setDeadline(addDays(new Date(), 7));
-        setRepeatInterval(1);
-        setTargetDate(addDays(new Date(), 365));
-        
-        // 少し遅延を入れてからダイアログを閉じる（トースト表示を確実にするため）
-        setTimeout(() => {
-          onOpenChange(false);
-        }, 100);
-      }
+      console.log("Task creation completed successfully");
+      
+      // フォームをリセット
+      setTitle("");
+      setGenre("hobby");
+      setDifficulty("auto");
+      setDeadline(addDays(new Date(), 7));
+      setRepeatInterval(1);
+      setTargetDate(addDays(new Date(), 365));
+      
+      // ダイアログを閉じる
+      onOpenChange(false);
     } catch (error) {
       // エラーが発生した場合はダイアログを開いたままにする
       console.error("Task creation error:", error);
-      // エラーの詳細情報も含める
+      
+      // ユーザーにエラーを通知
       if (error instanceof Error) {
-        console.error("Error details:", error.message);
+        console.error("Error details:", error.message, error.stack);
+        toast({
+          title: "エラー",
+          description: error.message || "タスクの作成に失敗しました",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "エラー",
+          description: "予期しないエラーが発生しました",
+          variant: "destructive"
+        });
       }
     }
   };

@@ -8,13 +8,17 @@ export function useCreateTsutome() {
   return useMutation({
     mutationFn: async (data: InsertTsutome) => {
       const res = await apiRequest("POST", "/api/tsutomes", data);
-      return res.json();
+      if (!res.ok) {
+        throw new Error(`Request failed with status: ${res.status}`);
+      }
+      const result = await res.json();
+      return result;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tsutomes"] });
       
       // 画像生成エラーの警告がある場合
-      if (data.warning) {
+      if (data?.warning) {
         toast({
           title: "務メを追加しました",
           description: data.warning,
@@ -27,9 +31,10 @@ export function useCreateTsutome() {
       }
     },
     onError: (error) => {
+      console.error("Task creation error:", error);
       toast({
         title: "エラー",
-        description: "務メの追加に失敗しました",
+        description: error instanceof Error ? error.message : "務メの追加に失敗しました",
         variant: "destructive",
       });
     },

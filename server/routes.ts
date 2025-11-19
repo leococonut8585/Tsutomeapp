@@ -226,39 +226,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/tsutomes", async (req, res) => {
+    console.log("POST /api/tsutomes - Request received");
     try {
       const player = await storage.getCurrentPlayer();
       if (!player) {
+        console.log("POST /api/tsutomes - Player not found");
         return res.status(404).json({ error: "Player not found" });
       }
+
+      console.log("POST /api/tsutomes - Player found:", player.id);
 
       // 日付文字列をDateオブジェクトに変換
       const data = {
         ...req.body,
-        deadline: new Date(req.body.deadline),
-        startDate: new Date(req.body.startDate),
+        playerId: player.id, // playerIdを追加
+        deadline: req.body.deadline ? new Date(req.body.deadline) : new Date(),
+        startDate: req.body.startDate ? new Date(req.body.startDate) : new Date(), // デフォルトは現在時刻
       };
 
       // バリデーション
       const validation = insertTsutomeSchema.safeParse(data);
       if (!validation.success) {
+        console.log("POST /api/tsutomes - Validation failed:", validation.error);
         return res.status(400).json({ error: "Invalid input", details: validation.error });
       }
 
       const validatedData = validation.data;
+      console.log("POST /api/tsutomes - Data validated, difficulty:", validatedData.difficulty);
 
       // AI判定: 難易度（提供されていない場合、または"auto"が指定された場合）
       let finalDifficulty = validatedData.difficulty;
       if (!finalDifficulty || finalDifficulty === "auto") {
-        console.log(`Auto-assessing difficulty for task: ${validatedData.title}`);
+        console.log(`POST /api/tsutomes - Auto-assessing difficulty for task: ${validatedData.title}`);
         try {
+          console.log("POST /api/tsutomes - Loading AI module...");
           const { assessTaskDifficulty } = await import("./ai");
+          console.log("POST /api/tsutomes - Calling AI assessment...");
           const aiDifficulty = await assessTaskDifficulty(
             validatedData.title,
             undefined, // descriptionフィールドは存在しない
             validatedData.genre
           );
-          console.log(`AI assessed difficulty: ${aiDifficulty}`);
+          console.log(`POST /api/tsutomes - AI assessed difficulty: ${aiDifficulty}`);
           
           // AI結果をDBのenumにマッピング
           const difficultyMap: Record<string, string> = {
@@ -268,7 +277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             "legendary": "extreme"
           };
           finalDifficulty = difficultyMap[aiDifficulty] || "normal";
-          console.log(`Mapped to DB enum: ${finalDifficulty}`);
+          console.log(`POST /api/tsutomes - Mapped to DB enum: ${finalDifficulty}`);
         } catch (aiError) {
           console.error("AI難易度判定エラー:", aiError);
           // AIエラーの場合はデフォルト難易度を設定し、警告を返す

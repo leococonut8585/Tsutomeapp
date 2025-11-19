@@ -11,6 +11,8 @@ if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY || !process.env.AI_INTEGRATIONS_
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "",
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "",
+  timeout: 10000, // 10秒のタイムアウト
+  maxRetries: 1, // リトライは1回まで
 });
 
 // 画像生成のレート制限 - 同時に1つのみ生成を許可
@@ -163,7 +165,23 @@ bonusMultiplierの基準：
 
 // 妖怪の名前を生成
 export async function generateMonsterName(taskTitle: string, genre: string, difficulty: string): Promise<string> {
+  // OpenAI APIが設定されていない場合は即座にフォールバック
+  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY || !process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+    console.log("OpenAI API not configured, using fallback monster name");
+    const genreNames: Record<string, string[]> = {
+      study: ["学魔", "文妖", "読霊", "知妖"],
+      exercise: ["体魔", "力妖", "動鬼", "筋霊"],
+      work: ["仕魔", "労鬼", "務妖", "職霊"],
+      hobby: ["趣妖", "楽魔", "遊鬼", "好霊"],
+      housework: ["家魔", "掃妖", "片鬼", "整霊"],
+      fun: ["楽妖", "笑魔", "遊霊", "愉鬼"],
+    };
+    const names = genreNames[genre] || ["務妖", "仕魔", "労鬼", "働霊"];
+    return names[Math.floor(Math.random() * names.length)];
+  }
+
   try {
+    console.log("Generating monster name with OpenAI...");
     const prompt = `あなたは和風ファンタジー世界の妖怪を命名する専門家です。
 
 タスク: ${taskTitle}
@@ -184,10 +202,22 @@ export async function generateMonsterName(taskTitle: string, genre: string, diff
       max_tokens: 50,
     });
 
-    return response.choices[0]?.message?.content?.trim() || "妖怪";
-  } catch (error) {
-    console.error("妖怪名生成エラー:", error);
-    return `${genre}の妖怪`;
+    const name = response.choices[0]?.message?.content?.trim();
+    console.log("Monster name generated:", name);
+    return name || "妖怪";
+  } catch (error: any) {
+    console.error("妖怪名生成エラー:", error?.message || error);
+    // タイムアウトまたはエラーの場合はフォールバック
+    const genreNames: Record<string, string[]> = {
+      study: ["学魔", "文妖", "読霊", "知妖"],
+      exercise: ["体魔", "力妖", "動鬼", "筋霊"],
+      work: ["仕魔", "労鬼", "務妖", "職霊"],
+      hobby: ["趣妖", "楽魔", "遊鬼", "好霊"],
+      housework: ["家魔", "掃妖", "片鬼", "整霊"],
+      fun: ["楽妖", "笑魔", "遊霊", "愉鬼"],
+    };
+    const names = genreNames[genre] || ["務妖", "仕魔", "労鬼", "働霊"];
+    return names[Math.floor(Math.random() * names.length)];
   }
 }
 
@@ -338,62 +368,10 @@ export async function generateStoryText(bossNumber: number, bossName: string): P
 
 // 画像生成（妖怪・修練・師範・刺客・ボス・ストーリー）
 export async function generateImage(prompt: string, type: "monster" | "training" | "master" | "assassin" | "boss" | "story"): Promise<string> {
-  try {
-    // レート制限とリトライでラップ
-    return await imageGenerationLimit(() =>
-      pRetry(
-        async () => {
-          // 和風スタイルのベースプロンプト
-          const stylePrompts = {
-            monster: "Japanese yokai monster in traditional sumi-e ink painting style, monochromatic with subtle ink wash effects, minimal detail, traditional Japanese art",
-            training: "Japanese martial arts training scene in traditional sumi-e ink painting style, meditation and practice, minimalist composition, serene atmosphere",
-            master: "Japanese martial arts master in traditional sumi-e ink painting style, wise mentor in classical robes, minimal detail but refined execution",
-            assassin: "Japanese ninja assassin in traditional sumi-e ink painting style, mysterious shadow figure, minimalist ink brush strokes",
-            boss: "Epic Japanese demon boss in traditional sumi-e ink painting style, dramatic ink painting of yokai, sophisticated composition with negative space",
-            story: "Japanese fantasy landscape in traditional sumi-e ink painting style, narrative ink paintings with traditional landscape composition, generous negative space",
-          };
-
-          const fullPrompt = `${prompt}, ${stylePrompts[type]}`;
-
-          const response = await openai.images.generate({
-            model: "gpt-image-1",
-            prompt: fullPrompt,
-            n: 1,
-            size: "1024x1024",
-            // Note: gpt-image-1 always returns base64 format, response_format parameter is not supported
-          });
-
-          // response.dataが存在し、配列の最初の要素にb64_jsonが存在するかチェック
-          if (!response.data || response.data.length === 0) {
-            throw new Error("画像生成エラー: レスポンスにデータがありません");
-          }
-
-          const imageData = response.data[0];
-          if (!imageData || !('b64_json' in imageData)) {
-            throw new Error("画像生成エラー: base64データが取得できませんでした");
-          }
-
-          // base64データをdata URLに変換
-          const base64Image = imageData.b64_json as string;
-          const dataUrl = `data:image/png;base64,${base64Image}`;
-          
-          return dataUrl;
-        },
-        {
-          retries: 2,
-          minTimeout: 1000,
-          maxTimeout: 10000,
-          onFailedAttempt: (error) => {
-            console.warn(`画像生成の試行 ${error.attemptNumber} が失敗しました:`, error.message);
-          },
-        }
-      )
-    );
-  } catch (error) {
-    console.error("画像生成がすべてのリトライ後に失敗しました:", error);
-    // エラー時は空文字列を返す（nullではなく）
-    return "";
-  }
+  // Replit AI Integration は画像生成をサポートしていない
+  // 将来的に別のプロバイダーを使用する予定
+  console.log(`Skipping ${type} image generation - not supported in current integration`);
+  return "";
 }
 
 // 難易度を判定（AIベース）
