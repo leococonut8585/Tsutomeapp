@@ -247,8 +247,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = validation.data;
 
+      // AI判定: 難易度（提供されていない場合、または"auto"が指定された場合）
+      let finalDifficulty = validatedData.difficulty;
+      if (!finalDifficulty || finalDifficulty === "auto") {
+        console.log(`Auto-assessing difficulty for task: ${validatedData.title}`);
+        const { assessTaskDifficulty } = await import("./ai");
+        finalDifficulty = await assessTaskDifficulty(
+          validatedData.title,
+          undefined, // descriptionフィールドは存在しない
+          validatedData.genre
+        );
+        console.log(`AI assessed difficulty: ${finalDifficulty}`);
+      }
+
       // AI生成: 妖怪名
-      const monsterName = await generateMonsterName(validatedData.title, validatedData.genre, validatedData.difficulty);
+      const monsterName = await generateMonsterName(validatedData.title, validatedData.genre, finalDifficulty);
 
       // AI生成: 妖怪画像（オプション、時間がかかる場合はスキップ可能）
       let monsterImageUrl = "";
@@ -273,6 +286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const tsutome = await storage.createTsutome({
         ...validatedData,
+        difficulty: finalDifficulty, // AI判定後の難易度を使用
         playerId: player.id,
         monsterName,
         monsterImageUrl,
