@@ -1,6 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import * as cron from "node-cron";
+import { executeDailyReset, executeHourlyCheck } from "./cron";
 
 const app = express();
 
@@ -77,5 +79,52 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Set up automatic cron jobs
+    log("Setting up automatic cron jobs...");
+    
+    // Daily Reset - Runs at 0:00 JST (15:00 UTC)
+    // JST is UTC+9, so midnight JST is 15:00 UTC the previous day
+    cron.schedule("0 15 * * *", async () => {
+      log("[CRON] Daily reset triggered (0:00 JST)");
+      try {
+        await executeDailyReset();
+        log("[CRON] Daily reset completed successfully");
+      } catch (error) {
+        console.error("[CRON] Daily reset failed:", error);
+      }
+    }, {
+      scheduled: true,
+      timezone: "UTC" // Using UTC to ensure consistency
+    });
+    
+    // Hourly Check - Runs every hour
+    cron.schedule("0 * * * *", async () => {
+      log("[CRON] Hourly check triggered");
+      try {
+        await executeHourlyCheck();
+        log("[CRON] Hourly check completed successfully");
+      } catch (error) {
+        console.error("[CRON] Hourly check failed:", error);
+      }
+    }, {
+      scheduled: true,
+      timezone: "UTC"
+    });
+    
+    log("Automatic cron jobs scheduled:");
+    log("- Daily reset: 0:00 JST (15:00 UTC) daily");
+    log("- Hourly check: Every hour at :00");
+    
+    // Run hourly check on startup to process any overdue tasks
+    setTimeout(async () => {
+      log("[CRON] Running initial hourly check on startup...");
+      try {
+        await executeHourlyCheck();
+        log("[CRON] Initial hourly check completed");
+      } catch (error) {
+        console.error("[CRON] Initial hourly check failed:", error);
+      }
+    }, 5000); // Wait 5 seconds after server starts
   });
 })();

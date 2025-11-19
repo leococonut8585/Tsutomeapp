@@ -412,24 +412,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // 報酬計算
-      const difficultyExp: Record<string, number> = {
-        easy: 50,
-        normal: 100,
-        hard: 200,
-        veryHard: 400,
-        extreme: 800,
-      };
-      const difficultyCoins: Record<string, number> = {
-        easy: 25,
-        normal: 50,
-        hard: 100,
-        veryHard: 200,
-        extreme: 400,
+      // 報酬計算 - 難易度ごとにランダムな範囲で報酬を設定
+      const getRandomRewards = (difficulty: string): { exp: number; coins: number } => {
+        switch (difficulty) {
+          case "easy":
+            return {
+              exp: 10 + Math.floor(Math.random() * 11), // 10-20
+              coins: 20 + Math.floor(Math.random() * 21), // 20-40
+            };
+          case "normal":
+            return {
+              exp: 30 + Math.floor(Math.random() * 21), // 30-50
+              coins: 60 + Math.floor(Math.random() * 41), // 60-100
+            };
+          case "hard":
+            return {
+              exp: 70 + Math.floor(Math.random() * 31), // 70-100
+              coins: 140 + Math.floor(Math.random() * 61), // 140-200
+            };
+          case "veryHard":
+            return {
+              exp: 100 + Math.floor(Math.random() * 51), // 100-150
+              coins: 200 + Math.floor(Math.random() * 101), // 200-300
+            };
+          case "extreme":
+            return {
+              exp: 150 + Math.floor(Math.random() * 51), // 150-200
+              coins: 300 + Math.floor(Math.random() * 101), // 300-400
+            };
+          default:
+            return {
+              exp: 30 + Math.floor(Math.random() * 21), // default to normal
+              coins: 60 + Math.floor(Math.random() * 41),
+            };
+        }
       };
 
-      let expGain = difficultyExp[tsutome.difficulty] || 100;
-      let coinsGain = difficultyCoins[tsutome.difficulty] || 50;
+      const rewards = getRandomRewards(tsutome.difficulty);
+      let expGain = rewards.exp;
+      let coinsGain = rewards.coins;
       
       // Calculate link bonus
       let linkBonusMultiplier = 1.0;

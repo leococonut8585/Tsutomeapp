@@ -18,12 +18,24 @@ const openai = new OpenAI({
 // 画像生成のレート制限 - 同時に1つのみ生成を許可
 const imageGenerationLimit = pLimit(1);
 
+// 難易度マッピング関数 - AI応答をスキーマに合わせて変換
+function translateDifficulty(aiDifficulty: "easy" | "medium" | "hard" | "legendary"): "easy" | "normal" | "hard" | "veryHard" | "extreme" {
+  const difficultyMap = {
+    'easy': 'easy' as const,
+    'medium': 'normal' as const,
+    'hard': 'hard' as const,
+    'legendary': 'extreme' as const
+  };
+  
+  return difficultyMap[aiDifficulty];
+}
+
 // タスク難易度を自動判定する関数
 export async function assessTaskDifficulty(
   taskTitle: string, 
   taskDescription?: string,
   genre?: string
-): Promise<"easy" | "medium" | "hard" | "legendary"> {
+): Promise<"easy" | "normal" | "hard" | "veryHard" | "extreme"> {
   try {
     const prompt = `あなたはタスクの難易度を評価する専門家です。
 
@@ -63,19 +75,20 @@ easy, medium, hard, legendary のいずれか1単語のみ`;
       max_tokens: 10,
     });
 
-    const difficulty = response.choices[0]?.message?.content?.trim().toLowerCase();
+    const aiDifficulty = response.choices[0]?.message?.content?.trim().toLowerCase();
     
     // 有効な難易度値のチェック
-    if (difficulty === "easy" || difficulty === "medium" || difficulty === "hard" || difficulty === "legendary") {
-      return difficulty;
+    if (aiDifficulty === "easy" || aiDifficulty === "medium" || aiDifficulty === "hard" || aiDifficulty === "legendary") {
+      // AIの応答をスキーマ形式に変換
+      return translateDifficulty(aiDifficulty);
     }
     
-    // フォールバック
-    console.warn(`Invalid difficulty returned: ${difficulty}, using medium as default`);
-    return "medium";
+    // フォールバック - "normal" をデフォルトに
+    console.warn(`Invalid difficulty returned: ${aiDifficulty}, using normal as default`);
+    return "normal";
   } catch (error) {
     console.error("タスク難易度判定エラー:", error);
-    return "medium"; // エラー時はmediumをデフォルトに
+    return "normal"; // エラー時はnormalをデフォルトに
   }
 }
 
