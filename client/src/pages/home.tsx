@@ -6,11 +6,11 @@ import { TaskFormDialog } from "@/components/task-form-dialog";
 import { TaskCompletionDialog } from "@/components/task-completion-dialog";
 import { Button } from "@/components/ui/button";
 import { Plus, Menu, Settings } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Player, TsutomeWithLinkSource, Tsutome } from "@shared/schema";
 import { useCompleteTsutome } from "@/hooks/use-tasks";
 import { motion, AnimatePresence } from "framer-motion";
 import { pageTransition, listAnimation, fadeIn } from "@/lib/animations";
+import { TaskCardSkeleton, StatsBarSkeleton } from "@/components/ui/skeleton-enhanced";
 
 export default function Home() {
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -59,7 +59,7 @@ export default function Home() {
       <main className="px-6 py-8 space-y-8">
         {/* ステータスバー */}
         {playerLoading ? (
-          <Skeleton className="h-40 w-full rounded-lg" />
+          <StatsBarSkeleton />
         ) : player ? (
           <StatsBar
             level={player.level}
@@ -92,11 +92,24 @@ export default function Home() {
           </div>
 
           {tsutomesLoading ? (
-            <div className="space-y-4">
+            <motion.div 
+              className="space-y-4"
+              variants={listAnimation.container}
+              initial="initial"
+              animate="animate"
+            >
               {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-32 w-full rounded-lg" />
+                <motion.div
+                  key={i}
+                  variants={listAnimation.item}
+                  initial="initial"
+                  animate="animate"
+                  transition={{ delay: i * 0.05 }}
+                >
+                  <TaskCardSkeleton />
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           ) : activeTsutomes.length > 0 ? (
             <motion.div 
               className="space-y-4"
