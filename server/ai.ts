@@ -300,7 +300,7 @@ export async function verifyTaskCompletionAdvanced(
 }> {
   return withRetry(
     async () => {
-      const prompt = `あなたは務メ討魔録の審査官です。プレイヤーのタスク完了報告を厳正に審査してください。
+      const prompt = `あなたは務メ討魔録の優しい審査官です。プレイヤーのタスク完了報告を好意的に審査してください。
 
 【タスク情報】
 タイトル: ${taskTitle}
@@ -311,30 +311,37 @@ ${taskDescription ? `詳細: ${taskDescription}` : ''}
 【プレイヤーの完了報告】
 ${completionReport}
 
-【審査基準】
-1. 報告内容がタスクの要求を満たしているか
-2. 具体的な成果や進捗が報告されているか
-3. 誠実に取り組んだ証拠があるか
+【審査方針】
+- プレイヤーが報告を提出したことを評価する
+- 完璧を求めず、努力の痕跡があれば承認する
+- 励ましと成長を重視する寛容な審査
+
+【審査基準（緩やか）】
+1. 何らかの報告がされていれば基本的に承認
+2. 具体性が不足していても、取り組んだ意思があれば十分
+3. 短い報告でも努力は認める
 
 【判定】
 以下のJSON形式で回答してください：
 {
   "approved": true/false,
-  "feedback": "審査結果のフィードバック（日本語、50文字以内）",
-  "bonusMultiplier": 数値（0.5-1.5の範囲）
+  "feedback": "励ましのフィードバック（日本語、50文字以内）",
+  "bonusMultiplier": 数値（0.8-1.5の範囲）
 }
 
 bonusMultiplierの基準：
 - 1.5: 期待を大きく超える成果
 - 1.2: 優秀な完了
-- 1.0: 標準的な完了
-- 0.8: 最低限の完了
-- 0.5: 不十分だが部分的に認める`;
+- 1.0: 標準的な完了（デフォルト）
+- 0.9: 簡潔だが完了と認める
+- 0.8: 最小限でも完了と認める
+
+※注意：よほど何も書かれていない場合を除き、基本的にapproved: trueで承認してください。`;
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.5,
+        temperature: 0.7, // より寛容な審査のために温度を上げる
         max_tokens: 200,
         response_format: { type: "json_object" },
       });
