@@ -1,5 +1,8 @@
 import { Heart, Zap } from "lucide-react";
 import { SealStampIcon } from "./icons/japanese-icons";
+import { motion } from "framer-motion";
+import { fadeIn, slideUp } from "@/lib/animations";
+import * as React from "react";
 
 interface StatsBarProps {
   level: number;
@@ -10,7 +13,7 @@ interface StatsBarProps {
   coins: number;
 }
 
-export function StatsBar({ level, exp, expToNext, hp, maxHp, coins }: StatsBarProps) {
+export const StatsBar = React.memo(function StatsBar({ level, exp, expToNext, hp, maxHp, coins }: StatsBarProps) {
   const hpPercent = (hp / maxHp) * 100;
   const expPercent = (exp / expToNext) * 100;
 
@@ -132,4 +135,4 @@ export function StatsBar({ level, exp, expToNext, hp, maxHp, coins }: StatsBarPr
       </div>
     </div>
   );
-}
+});

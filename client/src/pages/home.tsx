@@ -9,6 +9,8 @@ import { Plus, Menu, Settings } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Player, TsutomeWithLinkSource, Tsutome } from "@shared/schema";
 import { useCompleteTsutome } from "@/hooks/use-tasks";
+import { motion, AnimatePresence } from "framer-motion";
+import { pageTransition, listAnimation, fadeIn } from "@/lib/animations";
 
 export default function Home() {
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -28,7 +30,12 @@ export default function Home() {
   const activeTsutomes = tsutomes?.filter((t) => !t.completed && !t.cancelled) || [];
 
   return (
-    <div className="min-h-screen pb-24 bg-background pattern-seigaiha">
+    <motion.div 
+      className="min-h-screen pb-24 bg-background pattern-seigaiha"
+      variants={pageTransition}
+      initial="initial"
+      animate="animate"
+      exit="exit">
       {/* ヘッダー */}
       <header className="sticky top-0 z-40 bg-card border-b-4 border-foreground washi-texture">
         <div className="flex items-center justify-between px-6 h-20 relative">
@@ -91,26 +98,41 @@ export default function Home() {
               ))}
             </div>
           ) : activeTsutomes.length > 0 ? (
-            <div className="space-y-4">
-              {activeTsutomes.map((tsutome) => (
-                <TsutomeCard
-                  key={tsutome.id}
-                  tsutome={tsutome}
-                  linkSource={tsutome.linkSource ? {
-                    type: tsutome.linkSource.type,
-                    name: tsutome.linkSource.name,
-                    bonus: Math.round(tsutome.rewardBonus * 100)
-                  } : undefined}
-                  onComplete={() => {
-                    setSelectedTsutome(tsutome);
-                    setShowCompletionDialog(true);
-                  }}
-                  onClick={() => {
-                    // 詳細表示（将来実装）
-                  }}
-                />
-              ))}
-            </div>
+            <motion.div 
+              className="space-y-4"
+              variants={listAnimation.container}
+              initial="initial"
+              animate="animate"
+            >
+              <AnimatePresence mode="popLayout">
+                {activeTsutomes.map((tsutome, index) => (
+                  <motion.div
+                    key={tsutome.id}
+                    variants={listAnimation.item}
+                    initial="initial"
+                    animate="animate"
+                    exit={{ opacity: 0, x: 100 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <TsutomeCard
+                      tsutome={tsutome}
+                      linkSource={tsutome.linkSource ? {
+                        type: tsutome.linkSource.type,
+                        name: tsutome.linkSource.name,
+                        bonus: Math.round(tsutome.rewardBonus * 100)
+                      } : undefined}
+                      onComplete={() => {
+                        setSelectedTsutome(tsutome);
+                        setShowCompletionDialog(true);
+                      }}
+                      onClick={() => {
+                        // 詳細表示（将来実装）
+                      }}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
           ) : (
             <div className="bg-card rounded-lg p-12 text-center border border-dashed border-border">
               <p className="text-muted-foreground mb-4">討伐すべき妖怪はいません</p>
@@ -159,6 +181,6 @@ export default function Home() {
         }}
         isLoading={completeTsutome.isPending}
       />
-    </div>
+    </motion.div>
   );
 }

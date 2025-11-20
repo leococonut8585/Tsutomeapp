@@ -7,6 +7,8 @@ import { Tsutome } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
 import { ImageWithFallback } from "./image-with-fallback";
+import { motion, AnimatePresence } from "framer-motion";
+import { taskCardAnimation, successAnimation, rippleEffect } from "@/lib/animations";
 
 interface TsutomeCardProps {
   tsutome: Tsutome;
@@ -76,16 +78,21 @@ export function TsutomeCard({ tsutome, onComplete, onClick, linkSource }: Tsutom
   };
 
   return (
-    <div
-      className="relative bg-card japanese-shadow-lg scroll-design cursor-pointer 
-        transition-all duration-300 ease-in-out overflow-hidden"
+    <motion.div
+      variants={taskCardAnimation}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      whileHover={{ scale: 1.01, transition: { duration: 0.2 } }}
+      whileTap={rippleEffect.tap}
+      className="relative bg-card japanese-shadow-lg scroll-design cursor-pointer overflow-hidden"
       onClick={onClick}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       style={{
-        transform: `translateX(${swipeOffset}px)`,
-        transition: isSwiping ? 'none' : 'transform 0.3s ease-out',
+        transform: isSwiping ? `translateX(${swipeOffset}px)` : undefined,
+        transition: isSwiping ? 'none' : undefined,
       }}
       data-testid={`tsutome-card-${tsutome.id}`}
     >
@@ -240,6 +247,6 @@ export function TsutomeCard({ tsutome, onComplete, onClick, linkSource }: Tsutom
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
