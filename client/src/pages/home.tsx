@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, memo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { StatsBar } from "@/components/stats-bar";
 import { TsutomeCard } from "@/components/tsutome-card";
@@ -12,11 +12,63 @@ import { motion, AnimatePresence } from "framer-motion";
 import { pageTransition, listAnimation, fadeIn } from "@/lib/animations";
 import { TaskCardSkeleton, StatsBarSkeleton } from "@/components/ui/skeleton-enhanced";
 
+// メモ化されたTsutomeCardラッパーコンポーネント
+interface MemoizedTsutomeCardProps {
+  tsutome: TsutomeWithLinkSource;
+  onCompleteCard: (tsutome: Tsutome) => void;
+  onClickCard: () => void;
+}
+
+const MemoizedTsutomeCard = memo<MemoizedTsutomeCardProps>(
+  ({ tsutome, onCompleteCard, onClickCard }) => {
+    // tsutome固有のコールバックをメモ化
+    const handleComplete = useCallback(() => {
+      onCompleteCard(tsutome);
+    }, [onCompleteCard, tsutome]);
+
+    return (
+      <TsutomeCard
+        tsutome={tsutome}
+        linkSource={tsutome.linkSource ? {
+          type: tsutome.linkSource.type,
+          name: tsutome.linkSource.name,
+          bonus: Math.round(tsutome.rewardBonus * 100)
+        } : undefined}
+        onComplete={handleComplete}
+        onClick={onClickCard}
+      />
+    );
+  },
+  // カスタム比較関数：tsutomeのIDと完了状態のみをチェック
+  (prevProps, nextProps) => {
+    return (
+      prevProps.tsutome.id === nextProps.tsutome.id &&
+      prevProps.tsutome.completed === nextProps.tsutome.completed &&
+      prevProps.tsutome.cancelled === nextProps.tsutome.cancelled &&
+      prevProps.onCompleteCard === nextProps.onCompleteCard &&
+      prevProps.onClickCard === nextProps.onClickCard
+    );
+  }
+);
+
 export default function Home() {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [selectedTsutome, setSelectedTsutome] = useState<Tsutome | null>(null);
   const completeTsutome = useCompleteTsutome();
+
+  // メモ化されたコールバック関数
+  // onComplete: 務メ完了時のコールバック
+  const handleTsutomeComplete = useCallback((tsutome: Tsutome) => {
+    setSelectedTsutome(tsutome);
+    setShowCompletionDialog(true);
+  }, []); // setStateは安定しているため、依存配列は空
+
+  // onClick: カードクリック時のコールバック（将来実装用）
+  const handleTsutomeClick = useCallback(() => {
+    // 詳細表示（将来実装）
+  }, []); // 依存関係なし
+
   // プレイヤー情報取得
   const { data: player, isLoading: playerLoading } = useQuery<Player>({
     queryKey: ["/api/player"],
@@ -127,20 +179,10 @@ export default function Home() {
                     exit={{ opacity: 0, x: 100 }}
                     transition={{ delay: index * 0.05 }}
                   >
-                    <TsutomeCard
+                    <MemoizedTsutomeCard
                       tsutome={tsutome}
-                      linkSource={tsutome.linkSource ? {
-                        type: tsutome.linkSource.type,
-                        name: tsutome.linkSource.name,
-                        bonus: Math.round(tsutome.rewardBonus * 100)
-                      } : undefined}
-                      onComplete={() => {
-                        setSelectedTsutome(tsutome);
-                        setShowCompletionDialog(true);
-                      }}
-                      onClick={() => {
-                        // 詳細表示（将来実装）
-                      }}
+                      onCompleteCard={handleTsutomeComplete}
+                      onClickCard={handleTsutomeClick}
                     />
                   </motion.div>
                 ))}
