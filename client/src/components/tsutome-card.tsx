@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useState, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,7 @@ const genreLabels: Record<string, string> = {
   fun: "遊び",
 };
 
-export function TsutomeCard({ tsutome, onComplete, onClick, linkSource }: TsutomeCardProps) {
+export const TsutomeCard = React.memo(function TsutomeCard({ tsutome, onComplete, onClick, linkSource }: TsutomeCardProps) {
   const stars = difficultyStars[tsutome.difficulty] || 3;
   const deadline = new Date(tsutome.deadline);
   const isOverdue = deadline < new Date();
@@ -249,4 +250,4 @@ export function TsutomeCard({ tsutome, onComplete, onClick, linkSource }: Tsutom
       </div>
     </motion.div>
   );
-}
+});
