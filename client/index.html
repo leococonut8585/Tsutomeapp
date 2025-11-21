@@ -29,6 +29,19 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- React polyfill for Replit error modal -->
+    <script>
+      // Provide a mock React object to prevent null errors from Replit's runtime-error-modal
+      if (!window.React) {
+        window.React = { 
+          useRef: function() { return { current: null }; },
+          useState: function() { return [null, function() {}]; },
+          useEffect: function() {},
+          useContext: function() { return null; },
+          createElement: function() { return null; }
+        };
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
     
     <!-- Service Worker Registration -->
