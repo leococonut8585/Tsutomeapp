@@ -79,6 +79,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ Player Settings ============
+  app.patch("/api/player/settings", async (req, res) => {
+    try {
+      const { aiStrictness } = req.body;
+      
+      // Validate aiStrictness value
+      const validStrictnessLevels = ["very_lenient", "lenient", "balanced", "strict", "very_strict"];
+      if (aiStrictness && !validStrictnessLevels.includes(aiStrictness)) {
+        return res.status(400).json({ error: "無効なAI厳しさレベルです" });
+      }
+      
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
+      }
+      
+      // Update only the aiStrictness field
+      const updatedPlayer = await storage.updatePlayer(player.id, { aiStrictness });
+      if (!updatedPlayer) {
+        return res.status(404).json({ error: "プレイヤーの更新に失敗しました" });
+      }
+      
+      res.json(updatedPlayer);
+    } catch (error) {
+      routesLogger.error("Error updating player settings:", error);
+      res.status(500).json({ error: "内部エラーが発生しました" });
+    }
+  });
+
   // ============ Job Change ============
   app.post("/api/player/change-job", async (req, res) => {
     try {
