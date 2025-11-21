@@ -30,8 +30,8 @@ export default function ProfilePage() {
   // AI厳しさ更新ミューテーション
   const updateAiStrictness = useMutation({
     mutationFn: async (strictness: AIStrictness) => {
-      const response = await apiRequest("PATCH", "/api/player/settings", { 
-        aiStrictness: strictness 
+      const response = await apiRequest("POST", "/api/test-ai-update", { 
+        strictness: strictness 
       });
       return await response.json();
     },

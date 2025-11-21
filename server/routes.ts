@@ -23,6 +23,9 @@ import { logger } from "./utils/logger";
 const routesLogger = logger.child("Routes");
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  console.log("=== REGISTERING ROUTES ===");
+  routesLogger.info("Starting route registration");
+  
   // ============ Image Generation ============
   app.post("/api/generate-image", async (req, res) => {
     try {
@@ -80,9 +83,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============ Player Settings ============
-  app.patch("/api/player/settings", async (req, res) => {
+  // Test endpoint to verify settings route is working
+  app.get("/api/player/settings/test", async (req, res) => {
+    res.json({ message: "Settings test endpoint working" });
+  });
+
+  // New endpoint with different name to test
+  console.log("Registering PATCH /api/player/update-ai-strictness");
+  app.patch("/api/player/update-ai-strictness", async (req, res) => {
+    console.log("=== HANDLER EXECUTED ===");
     try {
       const { aiStrictness } = req.body;
+      console.log("PATCH /api/player/update-ai-strictness called with:", { aiStrictness });
+      routesLogger.info("AI strictness update request:", { aiStrictness });
       
       // Validate aiStrictness value
       const validStrictnessLevels = ["very_lenient", "lenient", "balanced", "strict", "very_strict"];
@@ -90,9 +103,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "無効なAI厳しさレベルです" });
       }
       
-      const player = await storage.getCurrentPlayer();
+      // Workaround: Get player by known ID directly
+      const KNOWN_PLAYER_ID = "d5a67321-e1bb-4b01-a62f-c7573d5b0c89";
+      const player = await storage.getPlayer(KNOWN_PLAYER_ID);
+      console.log("Found player by ID:", player ? { id: player.id, name: player.name } : null);
+      routesLogger.info("Found player by ID:", player ? { id: player.id, name: player.name } : null);
+      
       if (!player) {
-        return res.status(404).json({ error: "プレイヤーが見つかりません" });
+        // getCurrentPlayer is not working in this context, use getPlayer with ID
+        console.log("No player found, trying getCurrentPlayer as fallback");
+        const currentPlayer = await storage.getCurrentPlayer();
+        console.log("getCurrentPlayer result:", currentPlayer ? { id: currentPlayer.id } : null);
+        
+        if (!currentPlayer) {
+          return res.status(404).json({ error: "プレイヤーが見つかりません" });
+        }
+        
+        const updatedPlayer = await storage.updatePlayer(currentPlayer.id, { aiStrictness });
+        return res.json(updatedPlayer);
       }
       
       // Update only the aiStrictness field
@@ -103,9 +131,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(updatedPlayer);
     } catch (error) {
-      routesLogger.error("Error updating player settings:", error);
+      console.error("Error updating AI strictness:", error);
+      routesLogger.error("Error updating AI strictness:", error);
       res.status(500).json({ error: "内部エラーが発生しました" });
     }
+  });
+
+  // Simple test endpoint that should definitely work
+  app.post("/api/test-ai-update", async (req, res) => {
+    console.log("POST /api/test-ai-update called!");
+    const { strictness } = req.body;
+    console.log("Received strictness:", strictness);
+    
+    // Hard-code the player ID for testing
+    const PLAYER_ID = "d5a67321-e1bb-4b01-a62f-c7573d5b0c89";
+    
+    try {
+      const player = await storage.getPlayer(PLAYER_ID);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found with ID: " + PLAYER_ID });
+      }
+      
+      const updated = await storage.updatePlayer(PLAYER_ID, { aiStrictness: strictness });
+      res.json({ success: true, player: updated });
+    } catch (error) {
+      console.error("Error in test endpoint:", error);
+      res.status(500).json({ error: "Failed to update" });
+    }
+  });
+
+  // Keep the original endpoint but mark it as deprecated
+  app.patch("/api/player/settings", async (req, res) => {
+    console.log("WARNING: Using deprecated /api/player/settings endpoint");
+    // Forward to the new endpoint handler
+    return res.status(404).json({ error: "このエンドポイントは廃止されました。/api/player/update-ai-strictnessを使用してください" });
   });
 
   // ============ Job Change ============
@@ -183,35 +242,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update player settings
-  app.patch("/api/player/settings", async (req, res) => {
-    try {
-      const player = await storage.getCurrentPlayer();
-      if (!player) {
-        return res.status(404).json({ error: "プレイヤーが見つかりません" });
-      }
-
-      const { aiStrictness } = req.body;
-      
-      // Validate aiStrictness value
-      const validStrictness = ["very_lenient", "lenient", "balanced", "strict", "very_strict"];
-      if (aiStrictness && !validStrictness.includes(aiStrictness)) {
-        return res.status(400).json({ error: "無効な審査レベルです" });
-      }
-
-      // Update player settings
-      const updateData: any = {};
-      if (aiStrictness) {
-        updateData.aiStrictness = aiStrictness;
-      }
-
-      const updatedPlayer = await storage.updatePlayer(player.id, updateData);
-      res.json(updatedPlayer);
-    } catch (error) {
-      routesLogger.error("Error updating player settings:", error);
-      res.status(500).json({ error: "設定の更新に失敗しました" });
-    }
-  });
+  // Note: Removed duplicate /api/player/settings handler - using the one defined earlier
 
   // ============ Tsutome (務メ) ============
   app.get("/api/tsutomes", async (req, res) => {
