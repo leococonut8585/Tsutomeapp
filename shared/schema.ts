@@ -15,6 +15,10 @@ export type Difficulty = z.infer<typeof difficultyEnum>;
 export const taskTypeEnum = z.enum(["tsutome", "shuren", "shihan", "shikaku"]);
 export type TaskType = z.infer<typeof taskTypeEnum>;
 
+// AI審査レベル定義
+export const aiStrictnessEnum = z.enum(["very_lenient", "lenient", "balanced", "strict", "very_strict"]);
+export type AIStrictness = z.infer<typeof aiStrictnessEnum>;
+
 // Player (プレイヤー)
 export const players = pgTable("players", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -36,6 +40,8 @@ export const players = pgTable("players", {
   jobXp: integer("job_xp").notNull().default(0),
   skills: text("skills").array().notNull().default(sql`'{}'::text[]`),
   streak: integer("streak").notNull().default(0), // Daily completion streak
+  // Settings
+  aiStrictness: varchar("ai_strictness").notNull().default("lenient"), // AI審査の厳しさ
   createdAt: timestamp("created_at").defaultNow(),
 });
 
