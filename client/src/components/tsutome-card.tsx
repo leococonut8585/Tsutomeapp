@@ -1,5 +1,4 @@
 import * as React from "react";
-import { useState, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, Check, Link2, Flame } from "lucide-react";
@@ -45,9 +44,9 @@ export const TsutomeCard = React.memo(function TsutomeCard({ tsutome, onComplete
   const isOverdue = deadline < new Date();
   
   // スワイプ処理
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
-  const touchStartX = useRef(0);
+  const [swipeOffset, setSwipeOffset] = React.useState(0);
+  const [isSwiping, setIsSwiping] = React.useState(false);
+  const touchStartX = React.useRef(0);
 
   // タッチイベントハンドラー
   const handleTouchStart = (e: React.TouchEvent) => {
