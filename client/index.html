@@ -26,22 +26,47 @@
     
     <!-- iOS Splash Screens -->
     <link rel="apple-touch-startup-image" href="/favicon.png" />
+    <!-- Preload React polyfill BEFORE body to ensure it's available for any inline scripts -->
+    <script>
+      // Create React polyfill immediately - this runs before ANY other script
+      (function() {
+        const createHook = function(name, defaultReturn) {
+          return function() {
+            if (window.__realReact && window.__realReact[name]) {
+              return window.__realReact[name].apply(this, arguments);
+            }
+            return defaultReturn;
+          };
+        };
+        
+        const mockReact = {
+          useRef: createHook('useRef', { current: null }),
+          useState: createHook('useState', function(initial) { return [initial, function() {}]; }),
+          useEffect: createHook('useEffect', undefined),
+          useLayoutEffect: createHook('useLayoutEffect', undefined),
+          useContext: createHook('useContext', null),
+          useCallback: createHook('useCallback', function(fn) { return fn; }),
+          useMemo: createHook('useMemo', function(fn) { return typeof fn === 'function' ? fn() : fn; }),
+          useReducer: createHook('useReducer', function(reducer, initial) { return [initial, function() {}]; }),
+          createElement: createHook('createElement', null),
+          Component: function() {},
+          Fragment: Symbol('Fragment'),
+          version: '18.0.0'
+        };
+        
+        // Set React on window BEFORE any other script runs
+        window.React = mockReact;
+        window.ReactDOM = { 
+          render: function() {}, 
+          createRoot: function() { 
+            return { render: function() {} }; 
+          } 
+        };
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
-    <!-- React polyfill for Replit error modal -->
-    <script>
-      // Provide a mock React object to prevent null errors from Replit's runtime-error-modal
-      if (!window.React) {
-        window.React = { 
-          useRef: function() { return { current: null }; },
-          useState: function() { return [null, function() {}]; },
-          useEffect: function() {},
-          useContext: function() { return null; },
-          createElement: function() { return null; }
-        };
-      }
-    </script>
     <script type="module" src="/src/main.tsx"></script>
     
     <!-- Service Worker Registration -->
