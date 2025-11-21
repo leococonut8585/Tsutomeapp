@@ -292,7 +292,8 @@ export async function verifyTaskCompletionAdvanced(
   taskDescription: string | null,
   completionReport: string,
   monsterName: string,
-  difficulty: string
+  difficulty: string,
+  aiStrictness: string = "lenient" // デフォルトは寛容
 ): Promise<{
   approved: boolean;
   feedback: string;
@@ -300,7 +301,69 @@ export async function verifyTaskCompletionAdvanced(
 }> {
   return withRetry(
     async () => {
-      const prompt = `あなたは務メ討魔録の優しい審査官です。プレイヤーのタスク完了報告を好意的に審査してください。
+      // 審査レベルに応じたプロンプトと温度を設定
+      const getStrictnessConfig = (level: string) => {
+        switch (level) {
+          case "very_lenient":
+            return {
+              role: "とても優しい審査官",
+              policy: "ほぼ全ての報告を承認する極めて寛容な審査",
+              criteria: "1. 報告があれば即承認\n2. 内容不問で努力を評価\n3. 常に励まし、褒める",
+              note: "※ほぼ全てを承認してください。よほどの空欄でない限り承認。",
+              temperature: 0.9,
+              defaultBonus: 1.0
+            };
+          case "lenient":
+            return {
+              role: "優しい審査官",
+              policy: "プレイヤーの報告を好意的に審査する寛容な姿勢",
+              criteria: "1. 何らかの報告があれば基本的に承認\n2. 具体性が不足していても努力を認める\n3. 短い報告でも完了と認める",
+              note: "※基本的にapproved: trueで承認してください。",
+              temperature: 0.7,
+              defaultBonus: 1.0
+            };
+          case "balanced":
+            return {
+              role: "公平な審査官",
+              policy: "適度な基準でバランスよく審査",
+              criteria: "1. タスクに関連した報告があるか確認\n2. ある程度の具体性を求める\n3. 努力の跡が見えれば承認",
+              note: "※タスクと関係ない報告や極端に短い場合は不承認も可。",
+              temperature: 0.5,
+              defaultBonus: 1.0
+            };
+          case "strict":
+            return {
+              role: "厳格な審査官",
+              policy: "詳細で具体的な報告を求める厳しい審査",
+              criteria: "1. タスクの要求を満たす具体的な成果報告\n2. 実際の行動や結果の詳細\n3. 手抜きや曖昧な報告は不承認",
+              note: "※具体性のない報告は不承認にしてください。",
+              temperature: 0.3,
+              defaultBonus: 0.9
+            };
+          case "very_strict":
+            return {
+              role: "最も厳格な審査官",
+              policy: "完璧な報告のみを承認する極めて厳しい審査",
+              criteria: "1. タスクの全要素を網羅した詳細な報告\n2. 明確な成果と具体的な数値や事実\n3. 証拠となる詳細な説明",
+              note: "※完璧でない報告は容赦なく不承認にしてください。",
+              temperature: 0.1,
+              defaultBonus: 0.8
+            };
+          default:
+            return {
+              role: "優しい審査官",
+              policy: "プレイヤーの報告を好意的に審査する寛容な姿勢",
+              criteria: "1. 何らかの報告があれば基本的に承認\n2. 具体性が不足していても努力を認める\n3. 短い報告でも完了と認める",
+              note: "※基本的にapproved: trueで承認してください。",
+              temperature: 0.7,
+              defaultBonus: 1.0
+            };
+        }
+      };
+
+      const config = getStrictnessConfig(aiStrictness);
+      
+      const prompt = `あなたは務メ討魔録の${config.role}です。
 
 【タスク情報】
 タイトル: ${taskTitle}
@@ -312,36 +375,33 @@ ${taskDescription ? `詳細: ${taskDescription}` : ''}
 ${completionReport}
 
 【審査方針】
-- プレイヤーが報告を提出したことを評価する
-- 完璧を求めず、努力の痕跡があれば承認する
-- 励ましと成長を重視する寛容な審査
+${config.policy}
 
-【審査基準（緩やか）】
-1. 何らかの報告がされていれば基本的に承認
-2. 具体性が不足していても、取り組んだ意思があれば十分
-3. 短い報告でも努力は認める
+【審査基準】
+${config.criteria}
 
 【判定】
 以下のJSON形式で回答してください：
 {
   "approved": true/false,
-  "feedback": "励ましのフィードバック（日本語、50文字以内）",
-  "bonusMultiplier": 数値（0.8-1.5の範囲）
+  "feedback": "審査結果のフィードバック（日本語、50文字以内）",
+  "bonusMultiplier": 数値（0.5-1.5の範囲）
 }
 
 bonusMultiplierの基準：
 - 1.5: 期待を大きく超える成果
 - 1.2: 優秀な完了
-- 1.0: 標準的な完了（デフォルト）
+- 1.0: 標準的な完了
 - 0.9: 簡潔だが完了と認める
 - 0.8: 最小限でも完了と認める
+- 0.5: 不十分だが部分的に認める
 
-※注意：よほど何も書かれていない場合を除き、基本的にapproved: trueで承認してください。`;
+${config.note}`;
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.7, // より寛容な審査のために温度を上げる
+        temperature: config.temperature,
         max_tokens: 200,
         response_format: { type: "json_object" },
       });

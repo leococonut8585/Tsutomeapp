@@ -415,12 +415,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const { verifyTaskCompletionAdvanced } = await import("./ai");
           
+          // プレイヤーのAI審査レベルを渡す
+          const aiStrictness = (player as any).aiStrictness || "lenient";
+          
           aiVerificationResult = await verifyTaskCompletionAdvanced(
             tsutome.title,
             null, // tsutomeテーブルにdescriptionフィールドはない
             completionReport,
             tsutome.monsterName || "妖怪",
-            tsutome.difficulty
+            tsutome.difficulty,
+            aiStrictness
           );
           
           routesLogger.debug(`AI verification result for task ${id}:`, aiVerificationResult);
