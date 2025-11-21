@@ -183,6 +183,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update player settings
+  app.patch("/api/player/settings", async (req, res) => {
+    try {
+      const player = await storage.getCurrentPlayer();
+      if (!player) {
+        return res.status(404).json({ error: "プレイヤーが見つかりません" });
+      }
+
+      const { aiStrictness } = req.body;
+      
+      // Validate aiStrictness value
+      const validStrictness = ["very_lenient", "lenient", "balanced", "strict", "very_strict"];
+      if (aiStrictness && !validStrictness.includes(aiStrictness)) {
+        return res.status(400).json({ error: "無効な審査レベルです" });
+      }
+
+      // Update player settings
+      const updateData: any = {};
+      if (aiStrictness) {
+        updateData.aiStrictness = aiStrictness;
+      }
+
+      const updatedPlayer = await storage.updatePlayer(player.id, updateData);
+      res.json(updatedPlayer);
+    } catch (error) {
+      routesLogger.error("Error updating player settings:", error);
+      res.status(500).json({ error: "設定の更新に失敗しました" });
+    }
+  });
+
   // ============ Tsutome (務メ) ============
   app.get("/api/tsutomes", async (req, res) => {
     try {

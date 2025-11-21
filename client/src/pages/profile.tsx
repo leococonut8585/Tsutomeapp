@@ -30,10 +30,10 @@ export default function ProfilePage() {
   // AI厳しさ更新ミューテーション
   const updateAiStrictness = useMutation({
     mutationFn: async (strictness: AIStrictness) => {
-      return await apiRequest("/api/player/settings", {
-        method: "PATCH",
-        body: JSON.stringify({ aiStrictness: strictness }),
+      const response = await apiRequest("PATCH", "/api/player/settings", { 
+        aiStrictness: strictness 
       });
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player"] });
