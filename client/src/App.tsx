@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -23,6 +23,9 @@ import CalendarPage from "@/pages/calendar";
 import StoryPage from "@/pages/story";
 import EquipmentPage from "@/pages/equipment";
 import NotFound from "@/pages/not-found";
+import LoginPage from "@/pages/login";
+import AdminPage from "@/pages/admin";
+import { AuthProvider, useAuth } from "@/hooks/use-auth";
 
 function Router() {
   return (
@@ -37,6 +40,7 @@ function Router() {
       <Route path="/equipment" component={EquipmentPage} />
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/story" component={StoryPage} />
+      <Route path="/admin" component={AdminPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -47,19 +51,84 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <PWAProvider>
-            <div className="relative min-h-screen">
-              <OfflineIndicator />
-              <Router />
-              <BottomNav />
-              <InstallPrompt />
-            </div>
-            <Toaster />
-          </PWAProvider>
+          <AuthProvider>
+            <PWAProvider>
+              <AuthShell />
+              <Toaster />
+            </PWAProvider>
+          </AuthProvider>
         </TooltipProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );
+}
+
+function AuthShell() {
+  const { authenticated, isLoading, user } = useAuth();
+  const [location, navigate] = useLocation();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!authenticated) {
+      if (location !== "/login") {
+        navigate("/login", { replace: true });
+      }
+      return;
+    }
+
+    const isAdmin = user?.role === "admin";
+    if (isAdmin) {
+      if (location !== "/admin") {
+        navigate("/admin", { replace: true });
+      }
+      return;
+    }
+
+    if (location === "/login" || location === "/admin") {
+      navigate("/", { replace: true });
+    }
+  }, [authenticated, isLoading, location, navigate, user]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background text-muted-foreground">
+        <RefreshCw className="h-6 w-6 animate-spin" />
+        <p>冒険者を呼び出しています...</p>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-slate-50">
+        <Switch>
+          <Route path="/login" component={LoginPage} />
+          <Route>
+            <Redirect to="/login" />
+          </Route>
+        </Switch>
+      </div>
+    );
+  }
+
+  const isAdmin = user?.role === "admin";
+
+  return (
+    <div className="relative min-h-screen">
+      <OfflineIndicator />
+      <Router />
+      {!isAdmin && <BottomNav />}
+      {!isAdmin && <InstallPrompt />}
+    </div>
+  );
+}
+
+function Redirect({ to }: { to: string }) {
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    navigate(to, { replace: true });
+  }, [navigate, to]);
+  return null;
 }
 
 // PWA Provider component for service worker management

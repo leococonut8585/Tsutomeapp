@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, real, uniqueIndex, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -20,30 +20,43 @@ export const aiStrictnessEnum = z.enum(["very_lenient", "lenient", "balanced", "
 export type AIStrictness = z.infer<typeof aiStrictnessEnum>;
 
 // Player (プレイヤー)
-export const players = pgTable("players", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  level: integer("level").notNull().default(1),
-  exp: integer("exp").notNull().default(0),
-  hp: integer("hp").notNull().default(100),
-  maxHp: integer("maxHp").notNull().default(100),
-  coins: integer("coins").notNull().default(0),
-  // 5つのステータス
-  wisdom: integer("wisdom").notNull().default(10), // 知略
-  strength: integer("strength").notNull().default(10), // 武勇
-  agility: integer("agility").notNull().default(10), // 敏捷
-  vitality: integer("vitality").notNull().default(10), // 耐久
-  luck: integer("luck").notNull().default(10), // 運気
-  // Job system fields
-  job: varchar("job").notNull().default("novice"),
-  jobLevel: integer("job_level").notNull().default(1),
-  jobXp: integer("job_xp").notNull().default(0),
-  skills: text("skills").array().notNull().default(sql`'{}'::text[]`),
-  streak: integer("streak").notNull().default(0), // Daily completion streak
-  // Settings
-  aiStrictness: varchar("ai_strictness").notNull().default("lenient"), // AI審査の厳しさ
-  createdAt: timestamp("created_at").defaultNow(),
-});
+export const players = pgTable(
+  "players",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    name: text("name").notNull(),
+    username: varchar("username", { length: 80 }).notNull(),
+    passwordPlain: text("password_plain").notNull(),
+    role: varchar("role", { length: 20 }).notNull().default("player"),
+    suspended: boolean("suspended").notNull().default(false),
+    level: integer("level").notNull().default(1),
+    exp: integer("exp").notNull().default(0),
+    hp: integer("hp").notNull().default(100),
+    maxHp: integer("maxHp").notNull().default(100),
+    coins: integer("coins").notNull().default(0),
+    monthlyApiCalls: integer("monthly_api_calls").notNull().default(0),
+    monthlyApiCost: real("monthly_api_cost").notNull().default(0),
+    apiUsageResetAt: timestamp("api_usage_reset_at").defaultNow(),
+    // 5�̃X�e�[�^�X
+    wisdom: integer("wisdom").notNull().default(10), // �m��
+    strength: integer("strength").notNull().default(10), // ���E
+    agility: integer("agility").notNull().default(10), // �q��
+    vitality: integer("vitality").notNull().default(10), // �ϋv
+    luck: integer("luck").notNull().default(10), // �^�C
+    // Job system fields
+    job: varchar("job").notNull().default("novice"),
+    jobLevel: integer("job_level").notNull().default(1),
+    jobXp: integer("job_xp").notNull().default(0),
+    skills: text("skills").array().notNull().default(sql`'{}'::text[]`),
+    streak: integer("streak").notNull().default(0), // Daily completion streak
+    // Settings
+    aiStrictness: varchar("ai_strictness").notNull().default("lenient"), // AI�R���̌�����
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    usernameIdx: uniqueIndex("players_username_unique").on(table.username),
+  })
+);
 
 // 務メ (Tsutome - 消化タスク)
 export const tsutomes = pgTable("tsutomes", {
@@ -65,6 +78,7 @@ export const tsutomes = pgTable("tsutomes", {
   completedAt: timestamp("completed_at"),
   cancelled: boolean("cancelled").notNull().default(false),
   strengthLevel: integer("strength_level").notNull().default(1), // 放置による強化レベル
+  lastPenaltyDate: timestamp("last_penalty_date"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -204,10 +218,19 @@ export const dropHistory = pgTable("drop_history", {
   droppedAt: timestamp("dropped_at").notNull().defaultNow(),
 });
 
+export const adminAuditLogs = pgTable("admin_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adminId: varchar("admin_id").references(() => players.id),
+  targetUserId: varchar("target_user_id").references(() => players.id),
+  action: varchar("action", { length: 64 }).notNull(),
+  details: jsonb("details"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
 // Insert Schemas
 export const insertPlayerSchema = createInsertSchema(players).omit({ id: true, createdAt: true });
 export const insertTsutomeSchema = createInsertSchema(tsutomes)
-  .omit({ id: true, createdAt: true, completed: true, completedAt: true, cancelled: true, strengthLevel: true })
+  .omit({ id: true, createdAt: true, completed: true, completedAt: true, cancelled: true, strengthLevel: true, lastPenaltyDate: true })
   .extend({
     monsterName: z.string().optional(), // AI生成フィールドなのでオプショナルにする
     monsterImageUrl: z.string().nullable().optional(),
@@ -221,10 +244,16 @@ export const insertItemSchema = createInsertSchema(items).omit({ id: true, creat
 export const insertInventorySchema = createInsertSchema(inventories).omit({ id: true, createdAt: true });
 export const insertCronLogSchema = createInsertSchema(cronLogs).omit({ id: true, executedAt: true, success: true });
 export const insertDropHistorySchema = createInsertSchema(dropHistory).omit({ id: true, droppedAt: true });
+export const insertAdminAuditLogSchema = createInsertSchema(adminAuditLogs).omit({ id: true, createdAt: true });
 
 // Types
 export type Player = typeof players.$inferSelect;
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
+export type PublicPlayer = Omit<Player, "passwordPlain">;
+export function toPublicPlayer(player: Player): PublicPlayer {
+  const { passwordPlain, ...rest } = player;
+  return rest;
+}
 export type Tsutome = typeof tsutomes.$inferSelect;
 export type InsertTsutome = z.infer<typeof insertTsutomeSchema>;
 export type Shuren = typeof shurens.$inferSelect;
@@ -245,6 +274,8 @@ export type CronLog = typeof cronLogs.$inferSelect;
 export type InsertCronLog = z.infer<typeof insertCronLogSchema>;
 export type DropHistory = typeof dropHistory.$inferSelect;
 export type InsertDropHistory = z.infer<typeof insertDropHistorySchema>;
+export type AdminAuditLog = typeof adminAuditLogs.$inferSelect;
+export type InsertAdminAuditLog = z.infer<typeof insertAdminAuditLogSchema>;
 
 // DTOs for enriched responses
 export interface LinkSource {
@@ -254,6 +285,10 @@ export interface LinkSource {
   title: string; // The source task title
   continuousDays?: number; // For shuren
   progress?: number; // For shihan (percentage)
+  totalDays?: number;
+  bonus?: number;
+  breakdown?: Record<string, number>;
+  total?: number;
 }
 
 export interface TsutomeWithLinkSource extends Tsutome {
@@ -261,13 +296,48 @@ export interface TsutomeWithLinkSource extends Tsutome {
   rewardBonus: number; // Percentage as decimal (0.2 = 20%)
 }
 
-// Bonus calculation helpers
-export function calculateShurenBonus(continuousDays: number): number {
-  // 5日ごとに10%ボーナス、最大50%
-  return Math.min(0.5, Math.floor(continuousDays / 5) * 0.1);
+export interface LinkBonusResult {
+  total: number;
+  breakdown: Record<string, number>;
 }
 
-export function calculateShihanBonus(): number {
-  // 師範連携は固定20%ボーナス
-  return 0.2;
+function clampBonus(value: number, min = 0, max = 0.6) {
+  return Math.min(max, Math.max(min, value));
 }
+
+// Bonus calculation helpers
+export function calculateShurenBonus(continuousDays: number, totalDays = 0): LinkBonusResult {
+  const streakBonus = Math.min(0.5, Math.floor(continuousDays / 5) * 0.1);
+  const milestoneBonus = totalDays >= 120 ? 0.1 : totalDays >= 60 ? 0.05 : 0;
+  const total = clampBonus(streakBonus + milestoneBonus, 0, 0.6);
+  return {
+    total,
+    breakdown: {
+      streak: Number(streakBonus.toFixed(4)),
+      milestone: Number(milestoneBonus.toFixed(4)),
+    },
+  };
+}
+
+export function calculateShihanBonus(progressRatio = 0, daysUntilTarget?: number): LinkBonusResult {
+  const baseBonus = 0.2;
+  const progressBonus = progressRatio > 0.5 ? Math.min(0.15, (progressRatio - 0.5) * 0.5) : 0;
+  let urgencyBonus = 0;
+  if (typeof daysUntilTarget === "number") {
+    if (daysUntilTarget <= 3) {
+      urgencyBonus = 0.1;
+    } else if (daysUntilTarget <= 7) {
+      urgencyBonus = 0.05;
+    }
+  }
+  const total = clampBonus(baseBonus + progressBonus + urgencyBonus, 0, 0.6);
+  return {
+    total,
+    breakdown: {
+      base: Number(baseBonus.toFixed(4)),
+      progress: Number(progressBonus.toFixed(4)),
+      urgency: Number(urgencyBonus.toFixed(4)),
+    },
+  };
+}
+

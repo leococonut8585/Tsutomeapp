@@ -11,13 +11,16 @@ import { useCompleteTsutome } from "@/hooks/use-tasks";
 import { motion, AnimatePresence } from "framer-motion";
 import { pageTransition, listAnimation, fadeIn } from "@/lib/animations";
 import { TaskCardSkeleton, StatsBarSkeleton } from "@/components/ui/skeleton-enhanced";
+import { useCancelTsutome } from "@/hooks/use-tasks";
 
 // メモ化されたTsutomeCardラッパーコンポーネント
 interface MemoizedTsutomeCardProps {
   tsutome: TsutomeWithLinkSource;
   onCompleteCard: (tsutome: Tsutome) => void;
+  onCancelCard: (tsutome: Tsutome) => void;
   onClickCard: () => void;
 }
+
 
 const MemoizedTsutomeCard = memo<MemoizedTsutomeCardProps>(
   ({ tsutome, onCompleteCard, onClickCard }) => {
@@ -32,7 +35,12 @@ const MemoizedTsutomeCard = memo<MemoizedTsutomeCardProps>(
         linkSource={tsutome.linkSource ? {
           type: tsutome.linkSource.type,
           name: tsutome.linkSource.name,
-          bonus: Math.round(tsutome.rewardBonus * 100)
+          bonus: tsutome.linkSource.bonus ?? Math.round(tsutome.rewardBonus * 100),
+          continuousDays: tsutome.linkSource.continuousDays,
+          totalDays: tsutome.linkSource.totalDays,
+          progress: tsutome.linkSource.progress,
+          breakdown: tsutome.linkSource.breakdown,
+          total: tsutome.linkSource.total ?? tsutome.rewardBonus,
         } : undefined}
         onComplete={handleComplete}
         onClick={onClickCard}
@@ -56,6 +64,7 @@ export default function Home() {
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [selectedTsutome, setSelectedTsutome] = useState<Tsutome | null>(null);
   const completeTsutome = useCompleteTsutome();
+  const cancelTsutome = useCancelTsutome();
 
   // メモ化されたコールバック関数
   // onComplete: 務メ完了時のコールバック
@@ -182,6 +191,7 @@ export default function Home() {
                     <MemoizedTsutomeCard
                       tsutome={tsutome}
                       onCompleteCard={handleTsutomeComplete}
+                      onCancelCard={() => cancelTsutome.mutate(tsutome.id)}
                       onClickCard={handleTsutomeClick}
                     />
                   </motion.div>

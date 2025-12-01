@@ -1,7 +1,7 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTsutomeSchema, insertShurenSchema, insertShihanSchema, insertShikakuSchema, TsutomeWithLinkSource, LinkSource, calculateShurenBonus, calculateShihanBonus, Tsutome } from "@shared/schema";
+import { insertTsutomeSchema, insertShurenSchema, insertShihanSchema, insertShikakuSchema, TsutomeWithLinkSource, LinkSource, calculateShurenBonus, calculateShihanBonus, Tsutome, InsertInventory, DropHistory, Player, toPublicPlayer, AdminAuditLog } from "@shared/schema";
 import {
   generateMonsterName,
   generateTrainingName,
@@ -18,13 +18,158 @@ import {
   getCronStatus,
 } from "./cron";
 import { logger } from "./utils/logger";
+import { randomBytes } from "crypto";
 
 // Create a child logger for routes module
 const routesLogger = logger.child("Routes");
 
+const DAY_IN_MS = 1000 * 60 * 60 * 24;
+
+type StatBonus = {
+  wisdom: number;
+  strength: number;
+  agility: number;
+  vitality: number;
+  luck: number;
+};
+
+function parseStatBoost(boost?: string | null): Partial<StatBonus> {
+  if (!boost) return {};
+  try {
+    const parsed = typeof boost === "string" ? JSON.parse(boost) : boost;
+    return parsed || {};
+  } catch {
+    return {};
+  }
+}
+
+async function getEquipmentBonus(playerId: string): Promise<StatBonus> {
+  const inventories = await storage.getPlayerInventory(playerId);
+  const equipped = inventories.filter((inv) => inv.equipped);
+  const bonus: StatBonus = { wisdom: 0, strength: 0, agility: 0, vitality: 0, luck: 0 };
+
+  for (const inv of equipped) {
+    const item = await storage.getItem(inv.itemId);
+    if (!item) continue;
+    const effects = parseStatBoost(item.statBoost);
+    for (const [key, value] of Object.entries(effects)) {
+      if (key in bonus && typeof value === "number") {
+        bonus[key as keyof StatBonus] += value;
+      }
+    }
+  }
+  return bonus;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   console.log("=== REGISTERING ROUTES ===");
   routesLogger.info("Starting route registration");
+
+  const sanitizePlayer = (player: Player) => toPublicPlayer(player);
+
+  const adminOnly: RequestHandler = (req, res, next) => {
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ error: "管理者専用の操作です" });
+    }
+    next();
+  };
+
+  const mapAdminUser = (player: Player) => ({
+    id: player.id,
+    name: player.name,
+    username: player.username,
+    role: player.role,
+    job: player.job,
+    level: player.level,
+    coins: player.coins,
+    suspended: Boolean(player.suspended),
+    passwordPlain: player.passwordPlain,
+    monthlyApiCalls: player.monthlyApiCalls ?? 0,
+    monthlyApiCost: Number(player.monthlyApiCost ?? 0),
+    createdAt: player.createdAt ? new Date(player.createdAt).toISOString() : null,
+  });
+
+  const generateTempPassword = (length = 12) => {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!?";
+    const buf = randomBytes(length * 2);
+    let password = "";
+    for (let i = 0; i < buf.length && password.length < length; i++) {
+      const index = buf[i] % alphabet.length;
+      password += alphabet[index];
+    }
+  return password.slice(0, length);
+};
+
+  async function recordAdminAudit(
+    admin: Player,
+    action: string,
+    targetUserId?: string | null,
+    details?: Record<string, any>,
+  ) {
+    try {
+      await storage.createAdminAuditLog({
+        adminId: admin.id,
+        targetUserId: targetUserId ?? null,
+        action,
+        details: details ?? null,
+      });
+    } catch (error) {
+      routesLogger.warn("Failed to record admin audit log", { error: (error as Error).message });
+    }
+  }
+
+  app.post("/api/login", async (req, res) => {
+    try {
+      const { username, password } = req.body || {};
+      if (!username || !password) {
+        return res.status(400).json({ error: "ユーザー名とパスワードを入力してください" });
+      }
+      const normalizedUsername = String(username).trim();
+      const player = await storage.getPlayerByUsername(normalizedUsername);
+      if (!player || player.passwordPlain !== password) {
+        return res.status(401).json({ error: "ユーザー名またはパスワードが違います" });
+      }
+      if (player.suspended) {
+        return res.status(403).json({ error: "アカウントが停止されています" });
+      }
+      req.session.userId = player.id;
+      res.json({ player: sanitizePlayer(player) });
+    } catch (error) {
+      routesLogger.error("Login failed", { error });
+      res.status(500).json({ error: "ログインに失敗しました" });
+    }
+  });
+
+  app.post("/api/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        routesLogger.error("Logout failed", { error: err });
+        return res.status(500).json({ error: "ログアウトに失敗しました" });
+      }
+      res.json({ success: true });
+    });
+  });
+
+  app.get("/api/me", (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ authenticated: false });
+    }
+    res.json({ authenticated: true, player: sanitizePlayer(req.user) });
+  });
+
+  app.use("/api", (req, res, next) => {
+    const publicPaths = ["/login", "/logout", "/me"];
+    if (publicPaths.includes(req.path)) {
+      return next();
+    }
+    if (!req.user) {
+      return res.status(401).json({ error: "ログインが必要です" });
+    }
+    if (req.user.suspended) {
+      return res.status(403).json({ error: "アカウントが停止されています" });
+    }
+    next();
+  });
   
   // ============ Image Generation ============
   app.post("/api/generate-image", async (req, res) => {
@@ -40,7 +185,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "無効なタイプです。次のいずれかを指定してください: " + validTypes.join(", ") });
       }
       
-      const imageUrl = await generateImage(prompt, type);
+      const player = req.user!;
+      const imageUrl = await generateImage(prompt, type, {
+        playerId: player?.id,
+      });
       
       if (!imageUrl) {
         return res.status(500).json({ error: "画像の生成に失敗しました" });
@@ -56,29 +204,233 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============ Player ============
   app.get("/api/player", async (req, res) => {
     try {
-      const player = await storage.getCurrentPlayer();
-      if (!player) {
-        return res.status(404).json({ error: "プレイヤーが見つかりません" });
-      }
-      res.json(player);
+      const player = req.user!;
+      res.json(sanitizePlayer(player));
     } catch (error) {
       routesLogger.error("Error fetching player:", error);
-      res.status(500).json({ error: "内部エラーが発生しました" });
+      res.status(500).json({ error: "プレイヤー情報の取得に失敗しました" });
     }
   });
 
   app.patch("/api/player/:id", async (req, res) => {
     try {
       const { id } = req.params;
+      const requester = req.user!;
+      if (requester.role !== "admin" && requester.id !== id) {
+        return res.status(403).json({ error: "自分のアカウント以外は更新できません" });
+      }
       const updates = req.body;
       const player = await storage.updatePlayer(id, updates);
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
-      res.json(player);
+      res.json(sanitizePlayer(player));
     } catch (error) {
       routesLogger.error("Error updating player:", error);
-      res.status(500).json({ error: "内部エラーが発生しました" });
+      res.status(500).json({ error: "プレイヤー情報の更新に失敗しました" });
+    }
+  });
+
+  app.post("/api/player/change-password", async (req, res) => {
+    try {
+      const player = req.user!;
+      const { currentPassword, newPassword } = req.body || {};
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: "現在のパスワードと新しいパスワードを入力してください" });
+      }
+
+      if (player.passwordPlain !== currentPassword) {
+        return res.status(400).json({ error: "現在のパスワードが一致しません" });
+      }
+
+      if (typeof newPassword !== "string" || newPassword.length < 4) {
+        return res.status(400).json({ error: "新しいパスワードは4文字以上で入力してください" });
+      }
+
+      const updatedPlayer = await storage.updatePlayer(player.id, { passwordPlain: newPassword });
+      if (!updatedPlayer) {
+        return res.status(500).json({ error: "パスワードの更新に失敗しました" });
+      }
+
+      req.user = updatedPlayer;
+      res.json({ success: true });
+    } catch (error) {
+      routesLogger.error("Error changing password:", error);
+      res.status(500).json({ error: "パスワードの変更に失敗しました" });
+    }
+  });
+
+  // ============ Admin ============
+  app.get("/api/admin/users", adminOnly, async (_req, res) => {
+    try {
+      const players = await storage.listPlayers();
+      res.json({ users: players.map(mapAdminUser) });
+    } catch (error) {
+      routesLogger.error("Failed to fetch admin user list", { error });
+      res.status(500).json({ error: "ユーザー一覧の取得に失敗しました" });
+    }
+  });
+
+  app.get("/api/admin/summary", adminOnly, async (_req, res) => {
+    try {
+      const players = await storage.listPlayers();
+      const totalUsers = players.length;
+      const suspendedUsers = players.filter((player) => player.suspended).length;
+      const totalMonthlyCost = players.reduce(
+        (sum, player) => sum + Number(player.monthlyApiCost ?? 0),
+        0,
+      );
+      const totalMonthlyCalls = players.reduce(
+        (sum, player) => sum + Number(player.monthlyApiCalls ?? 0),
+        0,
+      );
+      res.json({
+        totalUsers,
+        suspendedUsers,
+        totalMonthlyCost,
+        totalMonthlyCalls,
+      });
+    } catch (error) {
+      routesLogger.error("Failed to fetch admin summary", { error });
+      res.status(500).json({ error: "サマリーの取得に失敗しました" });
+    }
+  });
+
+  app.get("/api/admin/logs", adminOnly, async (req, res) => {
+    try {
+      const limit = Math.min(Number(req.query.limit) || 200, 500);
+      const format = typeof req.query.format === "string" ? req.query.format : undefined;
+      const logs = await storage.listAdminAuditLogs(limit);
+
+      const playerCache = new Map<string, Player | undefined>();
+      const getPlayer = async (id?: string | null) => {
+        if (!id) return undefined;
+        if (playerCache.has(id)) return playerCache.get(id);
+        const player = await storage.getPlayer(id);
+        playerCache.set(id, player);
+        return player;
+      };
+
+      const decorated: Array<
+        AdminAuditLog & {
+          admin?: { id: string; name: string; username: string };
+          targetUser?: { id: string; name: string; username: string };
+        }
+      > = [];
+
+      for (const log of logs) {
+        const admin = await getPlayer(log.adminId || null);
+        const targetUser = await getPlayer(log.targetUserId || null);
+        decorated.push({
+          ...log,
+          details: typeof log.details === "string" ? JSON.parse(log.details) : log.details,
+          admin: admin ? { id: admin.id, name: admin.name, username: admin.username } : undefined,
+          targetUser: targetUser ? { id: targetUser.id, name: targetUser.name, username: targetUser.username } : undefined,
+        });
+      }
+
+      if (format === "csv") {
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename=\"admin-audit-${Date.now()}.csv\"`);
+        const header = ["timestamp", "action", "admin_name", "admin_username", "target_name", "target_username", "details"];
+        const lines = [header.join(",")];
+        for (const log of decorated) {
+          const row = [
+            new Date(log.createdAt || "").toISOString(),
+            log.action,
+            log.admin?.name || "",
+            log.admin?.username || "",
+            log.targetUser?.name || "",
+            log.targetUser?.username || "",
+            JSON.stringify(log.details || {})?.replace(/"/g, '""'),
+          ];
+          lines.push(row.map((value) => `"${value ?? ""}"`).join(","));
+        }
+        return res.send(lines.join("\n"));
+      }
+
+      res.json({ logs: decorated });
+    } catch (error) {
+      routesLogger.error("Failed to fetch audit logs", { error });
+      res.status(500).json({ error: "監査ログの取得に失敗しました" });
+    }
+  });
+
+  app.post("/api/admin/users", adminOnly, async (req, res) => {
+    try {
+      const { username, password, role = "player", name } = req.body || {};
+      const trimmedUsername = typeof username === "string" ? username.trim() : "";
+      if (!trimmedUsername || typeof password !== "string" || password.length < 4) {
+        return res.status(400).json({ error: "ユーザー名とパスワードは必須です（4文字以上）" });
+      }
+      if (!["player", "admin"].includes(role)) {
+        return res.status(400).json({ error: "アカウント種別が不正です" });
+      }
+
+      const existing = await storage.getPlayerByUsername(trimmedUsername);
+      if (existing) {
+        return res.status(409).json({ error: "同じユーザー名が既に存在します" });
+      }
+
+      const created = await storage.createPlayer({
+        name: name?.trim() || trimmedUsername,
+        username: trimmedUsername,
+        passwordPlain: password,
+        role,
+        suspended: false,
+      });
+      await recordAdminAudit(req.user!, "create_user", created.id, { username: trimmedUsername, role });
+      res.status(201).json({ user: mapAdminUser(created) });
+    } catch (error) {
+      routesLogger.error("Failed to create admin user", { error });
+      res.status(500).json({ error: "ユーザーの追加に失敗しました" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/suspend", adminOnly, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updatePlayer(id, { suspended: true });
+      if (!updated) {
+        return res.status(404).json({ error: "対象ユーザーが見つかりません" });
+      }
+      await recordAdminAudit(req.user!, "suspend_user", id, { username: updated.username });
+      res.json({ user: mapAdminUser(updated) });
+    } catch (error) {
+      routesLogger.error("Failed to suspend user", { error });
+      res.status(500).json({ error: "ユーザーの停止に失敗しました" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/resume", adminOnly, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updatePlayer(id, { suspended: false });
+      if (!updated) {
+        return res.status(404).json({ error: "対象ユーザーが見つかりません" });
+      }
+      await recordAdminAudit(req.user!, "resume_user", id, { username: updated.username });
+      res.json({ user: mapAdminUser(updated) });
+    } catch (error) {
+      routesLogger.error("Failed to resume user", { error });
+      res.status(500).json({ error: "ユーザーの停止解除に失敗しました" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/reset-password", adminOnly, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const newPassword = generateTempPassword();
+      const updated = await storage.updatePlayer(id, { passwordPlain: newPassword });
+      if (!updated) {
+        return res.status(404).json({ error: "対象ユーザーが見つかりません" });
+      }
+      await recordAdminAudit(req.user!, "reset_password", id, { username: updated.username });
+      res.json({ user: mapAdminUser(updated), newPassword });
+    } catch (error) {
+      routesLogger.error("Failed to reset password", { error });
+      res.status(500).json({ error: "パスワードリセットに失敗しました" });
     }
   });
 
@@ -89,51 +441,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // New endpoint with different name to test
-  console.log("Registering PATCH /api/player/update-ai-strictness");
+  console.log("Registering PATCH /api/player/update-ai-strictness")
   app.patch("/api/player/update-ai-strictness", async (req, res) => {
     console.log("=== HANDLER EXECUTED ===");
     try {
       const { aiStrictness } = req.body;
       console.log("PATCH /api/player/update-ai-strictness called with:", { aiStrictness });
       routesLogger.info("AI strictness update request:", { aiStrictness });
-      
-      // Validate aiStrictness value
+
       const validStrictnessLevels = ["very_lenient", "lenient", "balanced", "strict", "very_strict"];
       if (aiStrictness && !validStrictnessLevels.includes(aiStrictness)) {
-        return res.status(400).json({ error: "無効なAI厳しさレベルです" });
+        return res.status(400).json({ error: "無効なAI審査レベルです" });
       }
-      
-      // Workaround: Get player by known ID directly
-      const KNOWN_PLAYER_ID = "d5a67321-e1bb-4b01-a62f-c7573d5b0c89";
-      const player = await storage.getPlayer(KNOWN_PLAYER_ID);
-      console.log("Found player by ID:", player ? { id: player.id, name: player.name } : null);
-      routesLogger.info("Found player by ID:", player ? { id: player.id, name: player.name } : null);
-      
-      if (!player) {
-        // getCurrentPlayer is not working in this context, use getPlayer with ID
-        console.log("No player found, trying getCurrentPlayer as fallback");
-        const currentPlayer = await storage.getCurrentPlayer();
-        console.log("getCurrentPlayer result:", currentPlayer ? { id: currentPlayer.id } : null);
-        
-        if (!currentPlayer) {
-          return res.status(404).json({ error: "プレイヤーが見つかりません" });
-        }
-        
-        const updatedPlayer = await storage.updatePlayer(currentPlayer.id, { aiStrictness });
-        return res.json(updatedPlayer);
-      }
-      
-      // Update only the aiStrictness field
+
+      const player = req.user!;
       const updatedPlayer = await storage.updatePlayer(player.id, { aiStrictness });
       if (!updatedPlayer) {
         return res.status(404).json({ error: "プレイヤーの更新に失敗しました" });
       }
-      
-      res.json(updatedPlayer);
+
+      res.json(toPublicPlayer(updatedPlayer));
     } catch (error) {
       console.error("Error updating AI strictness:", error);
       routesLogger.error("Error updating AI strictness:", error);
-      res.status(500).json({ error: "内部エラーが発生しました" });
+      res.status(500).json({ error: "設定の更新に失敗しました" });
     }
   });
 
@@ -176,7 +507,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "職業IDは必須です" });
       }
       
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -247,76 +578,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============ Tsutome (務メ) ============
   app.get("/api/tsutomes", async (req, res) => {
     try {
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
       const tsutomes = await storage.getAllTsutomes(player.id);
       
       // Enrich tsutomes with linked source information
+      const now = new Date();
       const enrichedTsutomes = await Promise.all(
         tsutomes.map(async (tsutome) => {
-          let linkSource = null;
-          let bonusPercentage = 0;
-          
+          let linkSource: LinkSource | null = null;
+          let rewardBonus = 0;
+
           if (tsutome.linkedShurenId) {
-            // Get linked Shuren
             const shuren = await storage.getShuren(tsutome.linkedShurenId);
             if (shuren) {
-              // Calculate bonus based on continuous days
-              // 5 days = +10%, 10 days = +20%, 15 days = +30%, max +50%
-              const continuousDays = shuren.continuousDays;
-              bonusPercentage = Math.min(50, Math.floor(continuousDays / 5) * 10);
-              
+              const shurenBonus = calculateShurenBonus(shuren.continuousDays, shuren.totalDays);
+              rewardBonus = shurenBonus.total;
               linkSource = {
                 type: "shuren",
                 id: shuren.id,
                 name: shuren.trainingName,
                 title: shuren.title,
-                bonus: bonusPercentage,
                 continuousDays: shuren.continuousDays,
+                totalDays: shuren.totalDays,
+                bonus: Math.round(shurenBonus.total * 100),
+                breakdown: shurenBonus.breakdown,
               };
             }
           } else if (tsutome.linkedShihanId) {
-            // Get linked Shihan
             const shihan = await storage.getShihan(tsutome.linkedShihanId);
             if (shihan) {
-              // Get all completed tsutomes for this shihan to calculate progress
               const shihanTsutomes = await storage.getTsutomesByShihanId(shihan.id);
-              const completedCount = shihanTsutomes.filter(t => t.completed).length;
+              const completedCount = shihanTsutomes.filter((t) => t.completed).length;
               const totalCount = shihanTsutomes.length || 1;
-              const progress = Math.floor((completedCount / totalCount) * 100);
-              
-              // Fixed 20% bonus for Shihan-linked tasks
-              bonusPercentage = 20;
-              
+              const progressRatio = completedCount / totalCount;
+              const progressPercent = Math.floor(progressRatio * 100);
+              const daysUntilTarget = shihan.targetDate
+                ? Math.ceil((new Date(shihan.targetDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+                : undefined;
+              const shihanBonus = calculateShihanBonus(progressRatio, daysUntilTarget);
+              rewardBonus = shihanBonus.total;
+
               routesLogger.debug(`Shihan bonus calculation for task ${tsutome.id}:`, {
                 shihanId: shihan.id,
                 shihanName: shihan.masterName,
-                progress: `${progress}% (${completedCount}/${totalCount} completed)`,
-                bonusPercentage: `${bonusPercentage}% (fixed)`,
-                rewardBonus: bonusPercentage / 100,
+                progress: `${progressPercent}% (${completedCount}/${totalCount} completed)`,
+                bonusPercentage: `${Math.round(shihanBonus.total * 100)}%`,
+                rewardBonus,
               });
-              
+
               linkSource = {
                 type: "shihan",
                 id: shihan.id,
                 name: shihan.masterName,
                 title: shihan.title,
-                bonus: bonusPercentage,
-                progress: progress,
-              };
+                progress: progressPercent,
+                bonus: Math.round(shihanBonus.total * 100),
+                breakdown: shihanBonus.breakdown,
+              } as LinkSource;
             }
           }
-          
+
           return {
             ...tsutome,
             linkSource,
-            rewardBonus: bonusPercentage / 100, // Convert percentage to decimal (20% → 0.2)
+            rewardBonus,
           };
         })
       );
-      
+
       res.json(enrichedTsutomes);
     } catch (error) {
       routesLogger.error("Error fetching tsutomes:", error);
@@ -327,7 +659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/tsutomes", async (req, res) => {
     routesLogger.debug("POST /api/tsutomes - Request received");
     try {
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         routesLogger.debug("POST /api/tsutomes - Player not found");
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
@@ -353,6 +685,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = validation.data;
       routesLogger.debug("POST /api/tsutomes - Data validated, difficulty:", validatedData.difficulty);
 
+      // 1年より先の期限は登録不可
+      const now = new Date();
+      const oneYearLater = new Date(now);
+      oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+      if (validatedData.deadline > oneYearLater) {
+        return res.status(400).json({ error: "期限は1年以内に設定してください" });
+      }
+
       // AI判定: 難易度（提供されていない場合、または"auto"が指定された場合）
       let finalDifficulty = validatedData.difficulty;
       if (!finalDifficulty || finalDifficulty === "auto") {
@@ -364,7 +704,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const aiDifficulty = await assessTaskDifficulty(
             validatedData.title,
             undefined, // descriptionフィールドは存在しない
-            validatedData.genre
+            validatedData.genre,
+            { playerId: player.id }
           );
           routesLogger.debug(`POST /api/tsutomes - AI assessed difficulty: ${aiDifficulty}`);
           
@@ -386,7 +727,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // AI生成: 妖怪名
-      const monsterName = await generateMonsterName(validatedData.title, validatedData.genre, finalDifficulty);
+      const monsterName = await generateMonsterName(validatedData.title, validatedData.genre, finalDifficulty, { playerId: player.id });
 
       // AI生成: 妖怪画像（オプション、時間がかかる場合はスキップ可能）
       let monsterImageUrl = "";
@@ -395,7 +736,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         monsterImageUrl = await generateImage(
           `${monsterName}, ${validatedData.genre} themed yokai monster`,
-          "monster"
+          "monster",
+          { playerId: player.id }
         );
         
         // 空文字列が返ってきた場合は画像生成が失敗
@@ -554,57 +896,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let linkBonusMultiplier = 1.0;
       let bonusInfo = null;
       
-      if (tsutome.linkedShurenId) {
-        // Get linked Shuren for bonus calculation
-        const shuren = await storage.getShuren(tsutome.linkedShurenId);
-        if (shuren) {
-          // Bonus based on continuous days
-          const continuousDays = shuren.continuousDays;
-          const bonusPercentage = Math.min(50, Math.floor(continuousDays / 5) * 10);
-          linkBonusMultiplier = 1 + (bonusPercentage / 100);
-          
-          bonusInfo = {
-            type: "shuren",
-            name: shuren.trainingName,
-            title: shuren.title,
-            bonus: bonusPercentage,
-            continuousDays: continuousDays,
-          };
+              if (tsutome.linkedShurenId) {
+          const shuren = await storage.getShuren(tsutome.linkedShurenId);
+          if (shuren) {
+            const shurenBonus = calculateShurenBonus(shuren.continuousDays, shuren.totalDays);
+            linkBonusMultiplier = 1 + shurenBonus.total;
+
+            bonusInfo = {
+              type: "shuren",
+              name: shuren.trainingName,
+              title: shuren.title,
+              bonus: Math.round(shurenBonus.total * 100),
+              continuousDays: shuren.continuousDays,
+              totalDays: shuren.totalDays,
+              breakdown: shurenBonus.breakdown,
+            };
+          }
+        } else if (tsutome.linkedShihanId) {
+          const shihan = await storage.getShihan(tsutome.linkedShihanId);
+          if (shihan) {
+            const shihanTsutomes = await storage.getTsutomesByShihanId(shihan.id);
+            const completedCount = shihanTsutomes.filter((t) => t.completed).length;
+            const totalCount = shihanTsutomes.length || 1;
+            const progressRatio = completedCount / totalCount;
+            const progress = Math.floor(progressRatio * 100);
+            const nowForBonus = new Date();
+            const daysUntilTarget = shihan.targetDate
+              ? Math.ceil((new Date(shihan.targetDate).getTime() - nowForBonus.getTime()) / DAY_IN_MS)
+              : undefined;
+            const shihanBonus = calculateShihanBonus(progressRatio, daysUntilTarget);
+            linkBonusMultiplier = 1 + shihanBonus.total;
+
+            routesLogger.debug(`Task completion - Shihan bonus for task ${tsutome.id}:`, {
+              shihanId: shihan.id,
+              shihanName: shihan.masterName,
+              progress: `${progress}% (${completedCount}/${totalCount} completed)`,
+              bonusPercentage: `${Math.round(shihanBonus.total * 100)}%`,
+              linkBonusMultiplier,
+              baseRewards: { exp: expGain, coins: coinsGain },
+            });
+
+            bonusInfo = {
+              type: "shihan",
+              name: shihan.masterName,
+              title: shihan.title,
+              bonus: Math.round(shihanBonus.total * 100),
+              progress: progress,
+              breakdown: shihanBonus.breakdown,
+            };
+          }
         }
-      } else if (tsutome.linkedShihanId) {
-        // Get linked Shihan for bonus calculation
-        const shihan = await storage.getShihan(tsutome.linkedShihanId);
-        if (shihan) {
-          // Calculate progress
-          const shihanTsutomes = await storage.getTsutomesByShihanId(shihan.id);
-          const completedCount = shihanTsutomes.filter(t => t.completed).length;
-          const totalCount = shihanTsutomes.length || 1;
-          const progress = Math.floor((completedCount / totalCount) * 100);
-          
-          // Fixed 20% bonus for Shihan-linked tasks
-          const bonusPercentage = 20;
-          linkBonusMultiplier = 1 + (bonusPercentage / 100);
-          
-          routesLogger.debug(`Task completion - Shihan bonus for task ${tsutome.id}:`, {
-            shihanId: shihan.id,
-            shihanName: shihan.masterName,
-            progress: `${progress}% (${completedCount}/${totalCount} completed)`,
-            bonusPercentage: `${bonusPercentage}% (fixed)`,
-            linkBonusMultiplier: linkBonusMultiplier,
-            baseRewards: { exp: expGain, coins: coinsGain },
-          });
-          
-          bonusInfo = {
-            type: "shihan",
-            name: shihan.masterName,
-            title: shihan.title,
-            bonus: bonusPercentage,
-            progress: progress,
-          };
-        }
-      }
-      
-      // Apply link bonus to base rewards
+
+// Apply link bonus to base rewards
       expGain = Math.floor(expGain * linkBonusMultiplier);
       coinsGain = Math.floor(coinsGain * linkBonusMultiplier);
       
@@ -713,10 +1056,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // インベントリに追加
           if (itemDrops.length > 0) {
-            const inventoryItems = prepareInventoryItems(itemDrops, player.id);
+            const inventoryItems: Array<Omit<InsertInventory, "id" | "createdAt">> = prepareInventoryItems(itemDrops, player.id);
             
             // 各アイテムをインベントリに追加
+            // ドロップアイテムをインベントリに追加
             for (const invItem of inventoryItems) {
+              const qty = invItem.quantity ?? 1;
               // 既存のアイテムがあるか確認
               const existingInventory = await storage.getPlayerInventory(player.id);
               const existing = existingInventory.find(inv => inv.itemId === invItem.itemId && !inv.equipped);
@@ -724,11 +1069,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (existing) {
                 // 既存のアイテムに数量を追加
                 await storage.updateInventory(existing.id, {
-                  quantity: existing.quantity + invItem.quantity,
+                  quantity: existing.quantity + qty,
                 });
               } else {
-                // 新しいアイテムとして追加
-                await storage.addToInventory(invItem);
+                // 新規アイテムとして追加
+                await storage.addToInventory({ ...invItem, quantity: qty });
               }
             }
             
@@ -807,10 +1152,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ Tsutome Cancel (ペナルティ付きキャンセル) ============
+  app.post("/api/tsutomes/:id/cancel", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const tsutome = await storage.getTsutome(id);
+      if (!tsutome) {
+        return res.status(404).json({ error: "務メが見つかりません" });
+      }
+      if (tsutome.completed || tsutome.cancelled) {
+        return res.status(400).json({ error: "すでに完了済みまたはキャンセル済みです" });
+      }
+
+      const player = await storage.getPlayer(tsutome.playerId);
+      if (player) {
+        const penaltyHp = Math.min(player.hp, 20);
+        const penaltyCoins = Math.min(player.coins, 100);
+        const penaltyExp = Math.min(player.exp, 50);
+        await storage.updatePlayer(player.id, {
+          hp: player.hp - penaltyHp,
+          coins: player.coins - penaltyCoins,
+          exp: player.exp - penaltyExp,
+        });
+      }
+
+      const updated = await storage.updateTsutome(id, { cancelled: true, completed: false, completedAt: null });
+      res.json({ tsutome: updated, penalties: true });
+    } catch (error) {
+      routesLogger.error("Error cancelling tsutome:", error);
+      res.status(500).json({ error: "キャンセル処理でエラーが発生しました" });
+    }
+  });
+
   // ============ Shuren (修練) ============
   app.get("/api/shurens", async (req, res) => {
     try {
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -824,7 +1201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/shurens", async (req, res) => {
     try {
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -841,9 +1218,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const validatedData = validation.data;
+      if (validatedData.repeatInterval > 30) {
+        return res.status(400).json({ error: "繰り返し間隔は30日以内にしてください" });
+      }
 
       // AI生成: 修練名
-      const trainingName = await generateTrainingName(validatedData.title, validatedData.genre);
+      const trainingName = await generateTrainingName(validatedData.title, validatedData.genre, { playerId: player.id });
 
       // AI生成: 修練画像（オプション）
       let trainingImageUrl = "";
@@ -852,7 +1232,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         trainingImageUrl = await generateImage(
           `${trainingName}, ${validatedData.genre} martial arts training`,
-          "training"
+          "training",
+          { playerId: player.id }
         );
         
         // 空文字列が返ってきた場合は画像生成が失敗
@@ -967,7 +1348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============ Shihan (師範 - Long-term goals) ============
   app.get("/api/shihans", async (req, res) => {
     try {
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -981,7 +1362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/shihans", async (req, res) => {
     try {
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -1001,7 +1382,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = validation.data;
 
       // AI生成: 師範名
-      const masterName = await generateMasterName(validatedData.title, validatedData.genre);
+      const masterName = await generateMasterName(validatedData.title, validatedData.genre, { playerId: player.id });
 
       // AI生成: 師範画像（オプション）
       let masterImageUrl = "";
@@ -1010,7 +1391,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         masterImageUrl = await generateImage(
           `${masterName}, wise Japanese martial arts master, ${validatedData.genre} specialist`,
-          "master"
+          "master",
+          { playerId: player.id }
         );
         
         // 空文字列が返ってきた場合は画像生成が失敗
@@ -1106,7 +1488,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "師範が見つかりません" });
       }
 
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         routesLogger.error("Player not found");
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
@@ -1125,14 +1507,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // AI生成: モンスター名
-      const monsterName = await generateMonsterName(title, shihan.genre, difficulty);
+      const monsterName = await generateMonsterName(title, shihan.genre, difficulty, { playerId: player.id });
       
       // AI生成: モンスター画像（オプション）
       let monsterImageUrl = "";
       try {
         monsterImageUrl = await generateImage(
           `${monsterName}, Japanese yokai monster, ${difficulty} difficulty`,
-          "monster"
+          "monster",
+          { playerId: player.id }
         );
       } catch (error) {
         routesLogger.error("Monster image generation error:", error);
@@ -1193,7 +1576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "修練が見つかりません" });
       }
 
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         routesLogger.error("Player not found");
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
@@ -1219,14 +1602,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       deadline.setHours(23, 59, 59, 999);
       
       // AI生成: モンスター名
-      const monsterName = await generateMonsterName(shuren.title, shuren.genre, "normal");
+      const monsterName = await generateMonsterName(shuren.title, shuren.genre, "normal", { playerId: player.id });
       
       // AI生成: モンスター画像（オプション）
       let monsterImageUrl = "";
       try {
         monsterImageUrl = await generateImage(
           `${monsterName}, training yokai spirit, daily practice`,
-          "monster"
+          "monster",
+          { playerId: player.id }
         );
       } catch (error) {
         routesLogger.error("Monster image generation error:", error);
@@ -1322,7 +1706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============ Shikaku (刺客 - Urgent tasks) ============
   app.get("/api/shikakus", async (req, res) => {
     try {
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -1336,7 +1720,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/shikakus", async (req, res) => {
     try {
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -1349,7 +1733,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = validation.data;
 
       // AI生成: 刺客名
-      const assassinName = await generateAssassinName(validatedData.title, validatedData.difficulty);
+      const assassinName = await generateAssassinName(validatedData.title, validatedData.difficulty, { playerId: player.id });
 
       // AI生成: 刺客画像（オプション）
       let assassinImageUrl = "";
@@ -1358,7 +1742,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         assassinImageUrl = await generateImage(
           `${assassinName}, mysterious Japanese ninja assassin, ${validatedData.difficulty} level threat`,
-          "assassin"
+          "assassin",
+          { playerId: player.id }
         );
         
         // 空文字列が返ってきた場合は画像生成が失敗
@@ -1455,7 +1840,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============ Boss ============
   app.get("/api/boss/current", async (req, res) => {
     try {
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -1465,10 +1850,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ボスが存在しない場合は新規作成
       if (!boss) {
         const bossNumber = 1;
-        const bossName = await generateBossName(bossNumber);
+        const bossName = await generateBossName(bossNumber, { playerId: player.id });
         const bossImageUrl = await generateImage(
           `${bossName}, epic demon boss`,
-          "boss"
+          "boss",
+          { playerId: player.id }
         );
 
         boss = await storage.createBoss({
@@ -1510,12 +1896,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "今日はすでに攻撃しました" });
       }
 
-      // ダメージ計算
-      const damage = Math.floor(player.strength * 2 + player.level * 3);
+      // 装備ボーナスを考慮
+      const equipBonus = await getEquipmentBonus(player.id);
+      const effectiveStrength = player.strength + equipBonus.strength;
+      const effectiveVitality = player.vitality + equipBonus.vitality;
+
+      // ダメージ計算（攻撃）難易度スケーリングを軽く乗せる
+      const difficultyScaler = Math.max(1, boss.bossNumber * 0.08 + 1);
+      const damage = Math.max(1, Math.floor((effectiveStrength + player.level * 2) * 1.2 * difficultyScaler));
       const newBossHp = Math.max(0, boss.hp - damage);
 
-      // プレイヤーダメージ
-      const playerDamage = Math.max(0, boss.attackPower - player.vitality);
+      // プレイヤーダメージ（耐久を防御力として使用）
+      const playerDamage = Math.max(1, Math.floor(boss.attackPower * 0.85) - Math.floor(effectiveVitality * 0.65));
       const newPlayerHp = Math.max(0, player.hp - playerDamage);
 
       await storage.updatePlayer(player.id, { hp: newPlayerHp });
@@ -1530,10 +1922,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // ストーリー生成
-        const storyText = await generateStoryText(boss.bossNumber, boss.bossName);
+        const storyText = await generateStoryText(boss.bossNumber, boss.bossName, { playerId: player.id });
         const storyImageUrl = await generateImage(
           `Epic battle victory scene, ${boss.bossName} defeated`,
-          "story"
+          "story",
+          { playerId: player.id }
         );
 
         await storage.createStory({
@@ -1554,10 +1947,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // 次のボス生成
         const nextBossNumber = boss.bossNumber + 1;
-        const nextBossName = await generateBossName(nextBossNumber);
+        const nextBossName = await generateBossName(nextBossNumber, { playerId: player.id });
         const nextBossImageUrl = await generateImage(
           `${nextBossName}, epic demon boss`,
-          "boss"
+          "boss",
+          { playerId: player.id }
         );
 
         await storage.createBoss({
@@ -1617,7 +2011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "アイテムが見つかりません" });
       }
 
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -1648,7 +2042,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============ Stories ============
   app.get("/api/stories", async (req, res) => {
     try {
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -1752,7 +2146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Inventory routes
   app.get("/api/inventories", async (req, res) => {
     try {
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -1781,7 +2175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Drop history and statistics routes
   app.get("/api/drop-history", async (req, res) => {
     try {
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -1808,7 +2202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/drop-statistics", async (req, res) => {
     try {
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -1817,7 +2211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Enrich most common items with item details
       const mostCommonWithItems = await Promise.all(
-        statistics.mostCommon.map(async (entry) => {
+        statistics.mostCommon.map(async (entry: { itemId: string; count: number }) => {
           const item = await storage.getItem(entry.itemId);
           return {
             ...entry,
@@ -1828,7 +2222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Enrich recent drops with item details
       const recentDropsWithItems = await Promise.all(
-        statistics.recentDrops.map(async (drop) => {
+        statistics.recentDrops.map(async (drop: DropHistory) => {
           const item = await storage.getItem(drop.itemId);
           return {
             ...drop,
@@ -1851,7 +2245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Equipment routes
   app.get("/api/equipment", async (req, res) => {
     try {
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -1878,7 +2272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/equipment/equip", async (req, res) => {
     try {
       const { itemId } = req.body;
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }
@@ -1913,7 +2307,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/equipment/unequip", async (req, res) => {
     try {
       const { slot } = req.body;
-      const player = await storage.getCurrentPlayer();
+      const player = req.user!;
       if (!player) {
         return res.status(404).json({ error: "プレイヤーが見つかりません" });
       }

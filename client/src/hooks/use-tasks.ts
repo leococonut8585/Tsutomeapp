@@ -323,3 +323,28 @@ export function useCreateShikaku() {
     },
   });
 }
+
+// 務メキャンセル（ペナルティ付き）
+export function useCancelTsutome() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/tsutomes/${id}/cancel`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tsutomes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player"] });
+      toast({
+        title: "キャンセルしました",
+        description: "HP/コイン/経験値のペナルティを受けました",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "エラー",
+        description: error?.error || "キャンセルに失敗しました",
+        variant: "destructive",
+      });
+    },
+  });
+}

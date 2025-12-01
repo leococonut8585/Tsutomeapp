@@ -80,7 +80,11 @@ export function OfflineIndicator() {
       const db = await openDB();
       const tx = db.transaction('pendingTasks', 'readonly');
       const store = tx.objectStore('pendingTasks');
-      const count = await store.count();
+      const count = await new Promise<number>((resolve, reject) => {
+        const request = store.count();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
       
       setSyncPending(count > 0);
     } catch (error) {

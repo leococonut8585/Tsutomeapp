@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertShurenSchema } from "@shared/schema";
 import { z } from "zod";
 import { useCreateShuren } from "@/hooks/use-tasks";
 import { CalendarDays } from "lucide-react";
@@ -16,15 +15,14 @@ interface ShurenFormDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const shurenFormSchema = insertShurenSchema
-  .omit({ id: true, playerId: true, trainingName: true, trainingImageUrl: true, createdAt: true })
-  .extend({
-    title: z.string().min(1, "タイトルは必須です"),
-    genre: z.enum(["hobby", "study", "exercise", "work", "housework", "fun"]),
-    repeatInterval: z.number().min(1, "1以上の値を入力してください"),
-    dataTitle: z.string().min(1, "記録するデータのタイトルは必須です"),
-    dataUnit: z.string().default(""),
-  });
+const shurenFormSchema = z.object({
+  title: z.string().min(1, "タイトルは必須です"),
+  genre: z.enum(["hobby", "study", "exercise", "work", "housework", "fun"]),
+  repeatInterval: z.number().min(1, "1以上の値を入力してください").max(30, "最大30日までです"),
+  startDate: z.date(),
+  dataTitle: z.string().min(1, "記録するデータのタイトルは必須です"),
+  dataUnit: z.string().default(""),
+});
 
 type ShurenFormData = z.infer<typeof shurenFormSchema>;
 
@@ -40,10 +38,6 @@ export function ShurenFormDialog({ open, onOpenChange }: ShurenFormDialogProps) 
       startDate: new Date(),
       dataTitle: "実施回数",
       dataUnit: "回",
-      continuousDays: 0,
-      totalDays: 0,
-      missedCount: 0,
-      active: true,
     },
   });
 

@@ -1,6 +1,7 @@
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
-import { eq, and, or, desc, isNull, lt, lte } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
+const { Pool } = pg;
+import { eq, and, or, desc, isNull, lt, lte, sql } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import {
   players,
@@ -14,6 +15,7 @@ import {
   inventories,
   cronLogs,
   dropHistory,
+  adminAuditLogs,
   type Player,
   type Tsutome,
   type Shuren,
@@ -36,12 +38,44 @@ import {
   type InsertInventory,
   type InsertCronLog,
   type InsertDropHistory,
+  type AdminAuditLog,
+  type InsertAdminAuditLog,
 } from "@shared/schema";
-import { IStorage } from "./storage";
+import type { ApiUsageDelta, IStorage } from "./storage";
 
-// PostgreSQL接続
-const sql = neon(process.env.DATABASE_URL!);
-const db = drizzle(sql, { schema });
+const DAY_IN_MS = 1000 * 60 * 60 * 24;
+
+type StatBonus = {
+  wisdom: number;
+  strength: number;
+  agility: number;
+  vitality: number;
+  luck: number;
+};
+
+function createEmptyBonus(): StatBonus {
+  return { wisdom: 0, strength: 0, agility: 0, vitality: 0, luck: 0 };
+}
+
+function parseStatBoostValue(boost?: string | null): Partial<StatBonus> {
+  if (!boost) return {};
+  try {
+    const parsed = typeof boost === "string" ? JSON.parse(boost) : boost;
+    return parsed || {};
+  } catch {
+    return {};
+  }
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+// PostgreSQL接綁E(node-postgres)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+const db = drizzle(pool, { schema });
 
 export class DbStorage implements IStorage {
   public db = db;
@@ -57,6 +91,15 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  async getPlayerByUsername(username: string): Promise<Player | undefined> {
+    const result = await db.select().from(players).where(eq(players.username, username));
+    return result[0];
+  }
+
+  async listPlayers(): Promise<Player[]> {
+    return await db.select().from(players);
+  }
+
   async createPlayer(player: InsertPlayer): Promise<Player> {
     const result = await db.insert(players).values([player]).returning();
     return result[0];
@@ -68,10 +111,26 @@ export class DbStorage implements IStorage {
   }
 
   async getCurrentPlayer(): Promise<Player | undefined> {
-    // 最初のプレイヤーを返す（シングルプレイヤーゲーム）
+    // 最初�Eプレイヤーを返す�E�シングルプレイヤーゲーム�E�E
     const result = await db.select().from(players).limit(1);
     return result[0];
   }
+  async incrementApiUsage(playerId: string, delta: ApiUsageDelta): Promise<void> {
+    const calls = delta.calls ?? 0;
+    const cost = delta.costUsd ?? 0;
+    if (!calls && !cost) {
+      return;
+    }
+    await db
+      .update(players)
+      .set({
+        monthlyApiCalls: sql<number>`${players.monthlyApiCalls} + ${calls}`,
+        monthlyApiCost: sql<number>`${players.monthlyApiCost} + ${cost}`,
+      })
+      .where(eq(players.id, playerId));
+  }
+
+
 
   // Tsutome
   async getTsutome(id: string): Promise<Tsutome | undefined> {
@@ -92,8 +151,14 @@ export class DbStorage implements IStorage {
   }
 
   async createTsutome(tsutome: InsertTsutome): Promise<Tsutome> {
-    const result = await db.insert(tsutomes).values([tsutome]).returning();
-    return result[0];
+    const payload = {
+      ...tsutome,
+      monsterName: tsutome.monsterName ?? "�E�d�E��E�",
+      monsterImageUrl: tsutome.monsterImageUrl ?? null,
+      lastPenaltyDate: (tsutome as any).lastPenaltyDate ?? null,
+    };
+    const [result] = await db.insert(tsutomes).values(payload).returning();
+    return result;
   }
 
   async updateTsutome(id: string, updates: Partial<Tsutome>): Promise<Tsutome | undefined> {
@@ -167,8 +232,14 @@ export class DbStorage implements IStorage {
   }
 
   async createShikaku(shikaku: InsertShikaku): Promise<Shikaku> {
-    const result = await db.insert(shikakus).values([shikaku]).returning();
-    return result[0];
+    const expiresAt = (shikaku as any).expiresAt ?? new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const payload = {
+      ...shikaku,
+      assassinImageUrl: shikaku.assassinImageUrl ?? null,
+      expiresAt,
+    } as any;
+    const [result] = await db.insert(shikakus).values(payload).returning();
+    return result;
   }
 
   async updateShikaku(id: string, updates: Partial<Shikaku>): Promise<Shikaku | undefined> {
@@ -188,7 +259,7 @@ export class DbStorage implements IStorage {
   }
 
   async getCurrentBoss(playerId: string): Promise<Boss | undefined> {
-    // 未撃破のボスの中で最小のbossNumberを持つボスを返す
+    // 未撁E��のボスの中で最小�EbossNumberを持つボスを返す
     const result = await db
       .select()
       .from(bosses)
@@ -243,8 +314,22 @@ export class DbStorage implements IStorage {
   }
 
   async createItem(item: InsertItem): Promise<Item> {
-    const result = await db.insert(items).values([item]).returning();
-    return result[0];
+    const normalizedType = ["weapon", "armor", "accessory", "consumable", "material"].includes(item.itemType as string)
+      ? item.itemType
+      : item.itemType === "equipment"
+        ? "weapon"
+        : item.itemType;
+    const payload = {
+      ...item,
+      itemType: normalizedType,
+      rarity: (item as any).rarity ?? "common",
+      droppable: (item as any).droppable ?? normalizedType !== "consumable",
+      dropRate: (item as any).dropRate ?? 10,
+      imageUrl: item.imageUrl ?? null,
+      statBoost: item.statBoost ?? null,
+    };
+    const [result] = await db.insert(items).values(payload).returning();
+    return result;
   }
 
   // Inventory
@@ -265,6 +350,69 @@ export class DbStorage implements IStorage {
   async updateInventory(id: string, updates: Partial<Inventory>): Promise<Inventory | undefined> {
     const result = await db.update(inventories).set(updates).where(eq(inventories.id, id)).returning();
     return result[0];
+  }
+
+  private getSlotForItem(item: Item): "weapon" | "armor" | "accessory" | null {
+    if (item.itemType === "weapon") return "weapon";
+    if (item.itemType === "armor") return "armor";
+    if (item.itemType === "accessory") return "accessory";
+    if (item.itemType === "equipment") return "weapon"; // fallback for generic equipment
+    return null;
+  }
+
+  async equipItem(playerId: string, itemId: string, slot: "weapon" | "armor" | "accessory"): Promise<void> {
+    const playerInventories = await this.getPlayerInventory(playerId);
+    const targetInventory = playerInventories.find((inv) => inv.itemId === itemId);
+    if (!targetInventory) throw new Error("Inventory item not found");
+
+    const items = await this.getAllItems();
+    const targetItem = items.find((i) => i.id === itemId);
+    if (!targetItem) throw new Error("Item not found");
+    const resolvedSlot = this.getSlotForItem(targetItem);
+    if (resolvedSlot && resolvedSlot !== slot) {
+      throw new Error("Item cannot be equipped to this slot");
+    }
+
+    // Unequip other items in the same slot
+    for (const inv of playerInventories) {
+      const invItem = items.find((i) => i.id === inv.itemId);
+      if (!invItem) continue;
+      if (this.getSlotForItem(invItem) === slot && inv.equipped) {
+        await db.update(inventories).set({ equipped: false }).where(eq(inventories.id, inv.id));
+      }
+    }
+
+    await db.update(inventories).set({ equipped: true }).where(eq(inventories.id, targetInventory.id));
+  }
+
+  async unequipItem(playerId: string, slot: "weapon" | "armor" | "accessory"): Promise<void> {
+    const playerInventories = await this.getPlayerInventory(playerId);
+    const items = await this.getAllItems();
+
+    for (const inv of playerInventories) {
+      const invItem = items.find((i) => i.id === inv.itemId);
+      if (!invItem) continue;
+      if (this.getSlotForItem(invItem) === slot && inv.equipped) {
+        await db.update(inventories).set({ equipped: false }).where(eq(inventories.id, inv.id));
+      }
+    }
+  }
+
+  private async getEquipmentBonus(playerId: string): Promise<StatBonus> {
+    const bonus = createEmptyBonus();
+    const playerInventories = await this.getPlayerInventory(playerId);
+    for (const inv of playerInventories) {
+      if (!inv.equipped) continue;
+      const item = await this.getItem(inv.itemId);
+      if (!item) continue;
+      const effects = parseStatBoostValue(item.statBoost);
+      for (const [key, value] of Object.entries(effects)) {
+        if (key in bonus && typeof value === "number") {
+          (bonus as any)[key] += value as number;
+        }
+      }
+    }
+    return bonus;
   }
 
   // Cron Operations
@@ -317,45 +465,106 @@ export class DbStorage implements IStorage {
     let totalDamage = 0;
     const deadTasks: string[] = [];
 
-    // Process overdue Tsutomes
-    const tsutomes = await this.getAllTsutomes(playerId);
-    for (const tsutome of tsutomes) {
-      if (!tsutome.completed && !tsutome.cancelled) {
-        const deadline = new Date(tsutome.deadline);
-        if (deadline < now) {
-          const daysOverdue = Math.floor((now.getTime() - deadline.getTime()) / (1000 * 60 * 60 * 24));
-          if (daysOverdue > 0) {
-            totalDamage += daysOverdue * 10; // 10 HP per day
-            deadTasks.push(`務メ: ${tsutome.title} (${daysOverdue}日遅延)`);
+    const player = await this.getPlayer(playerId);
+    if (!player) {
+      return { hpDamage: 0, deadTasks };
+    }
+
+    const equipmentBonus = await this.getEquipmentBonus(playerId);
+    const effectiveAgility = player.agility + (equipmentBonus.agility || 0);
+    const dodgeChance = clamp(0.05 + effectiveAgility * 0.004, 0.05, 0.65);
+
+    const difficultyScaling: Record<string, number> = {
+      easy: 0.85,
+      normal: 1,
+      hard: 1.2,
+      veryHard: 1.4,
+      extreme: 1.6,
+    };
+
+    const playerTsutomes = await this.getAllTsutomes(playerId);
+    for (const tsutome of playerTsutomes) {
+      if (tsutome.completed || tsutome.cancelled) continue;
+
+      const startDate = new Date(tsutome.startDate);
+      const daysSinceStart = Math.max(0, Math.floor((now.getTime() - startDate.getTime()) / DAY_IN_MS));
+      const deadline = new Date(tsutome.deadline);
+      const overdueDays = deadline < now ? Math.max(1, Math.floor((now.getTime() - deadline.getTime()) / DAY_IN_MS)) : 0;
+
+      let calculatedStrength = 1 + Math.floor(daysSinceStart / 4);
+      if (overdueDays > 0) {
+        calculatedStrength += Math.min(4, overdueDays);
+      }
+      calculatedStrength = clamp(calculatedStrength, 1, 10);
+
+      const updates: Partial<Tsutome> = {};
+      if (calculatedStrength !== tsutome.strengthLevel) {
+        updates.strengthLevel = calculatedStrength;
+      }
+
+      if (overdueDays > 0) {
+        const lastPenalty = tsutome.lastPenaltyDate ? new Date(tsutome.lastPenaltyDate) : null;
+        const penalizedToday = lastPenalty ? isSameDay(lastPenalty, now) : false;
+        if (penalizedToday) {
+          if (Object.keys(updates).length) {
+            await this.updateTsutome(tsutome.id, updates);
+          }
+          continue;
+        }
+
+        const difficultyMultiplier = difficultyScaling[tsutome.difficulty] ?? 1;
+        const baseDamage = 4 + calculatedStrength * 2.5;
+        const agilityMitigation = Math.floor(effectiveAgility / 14);
+        const perStrikeDamage = Math.max(3, Math.ceil(baseDamage * difficultyMultiplier) - agilityMitigation);
+        let taskDamage = 0;
+        let dodged = 0;
+
+        for (let i = 0; i < overdueDays; i++) {
+          if (Math.random() < dodgeChance) {
+            dodged++;
+          } else {
+            taskDamage += perStrikeDamage;
           }
         }
+
+        if (taskDamage > 0) {
+          totalDamage += taskDamage;
+          const dodgeInfo = dodged ? ` / ${dodged}回回避` : "";
+          deadTasks.push(`務メ: ${tsutome.title} (Lv${calculatedStrength}, ${taskDamage}ダメージ${dodgeInfo})`);
+        } else {
+          deadTasks.push(`務メ: ${tsutome.title} の攻撁E��${dodged}回すべて回避`);
+        }
+
+        updates.lastPenaltyDate = now;
+      }
+
+      if (Object.keys(updates).length) {
+        await this.updateTsutome(tsutome.id, updates);
+        Object.assign(tsutome, updates);
       }
     }
 
-    // Process overdue Shihans
-    const shihans = await this.getAllShihans(playerId);
-    for (const shihan of shihans) {
+    const playerShihans = await this.getAllShihans(playerId);
+    for (const shihan of playerShihans) {
       if (!shihan.completed) {
         const targetDate = new Date(shihan.targetDate);
         if (targetDate < now) {
-          const daysOverdue = Math.floor((now.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
+          const daysOverdue = Math.floor((now.getTime() - targetDate.getTime()) / DAY_IN_MS);
           if (daysOverdue > 0) {
-            totalDamage += daysOverdue * 20; // 20 HP per day
-            deadTasks.push(`師範: ${shihan.title} (${daysOverdue}日遅延)`);
+            totalDamage += daysOverdue * 20;
+            deadTasks.push(`師篁E ${shihan.title} (${daysOverdue}日遁E��)`);
           }
         }
       }
     }
 
-    // Process expired Shikakus
-    const shikakus = await this.getAllShikakus(playerId);
-    for (const shikaku of shikakus) {
+    const playerShikakus = await this.getAllShikakus(playerId);
+    for (const shikaku of playerShikakus) {
       if (!shikaku.completed) {
         const expiresAt = new Date(shikaku.expiresAt);
         if (expiresAt < now) {
-          totalDamage += 30; // 30 HP immediately
-          deadTasks.push(`刺客: ${shikaku.title} (期限切れ)`);
-          // Mark as expired/cancelled
+          totalDamage += 30;
+          deadTasks.push(`刺客: ${shikaku.title} (期限刁E��)`);
           await this.deleteShikaku(shikaku.id);
         }
       }
@@ -446,6 +655,15 @@ export class DbStorage implements IStorage {
       mostCommon,
       recentDrops,
     };
+  }
+
+  async createAdminAuditLog(log: InsertAdminAuditLog): Promise<AdminAuditLog> {
+    const [record] = await this.db.insert(adminAuditLogs).values(log).returning();
+    return record;
+  }
+
+  async listAdminAuditLogs(limit: number = 100): Promise<AdminAuditLog[]> {
+    return await this.db.select().from(adminAuditLogs).orderBy(desc(adminAuditLogs.createdAt)).limit(limit);
   }
 }
 

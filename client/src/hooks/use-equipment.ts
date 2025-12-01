@@ -8,10 +8,7 @@ export function useEquipItem() {
   
   return useMutation({
     mutationFn: async ({ itemId }: { itemId: string }) => {
-      return apiRequest('/api/equipment/equip', {
-        method: 'POST',
-        body: JSON.stringify({ itemId })
-      });
+      return apiRequest("POST", "/api/equipment/equip", { itemId });
     },
     onSuccess: () => {
       // Invalidate related queries
@@ -39,10 +36,7 @@ export function useUnequipItem() {
   
   return useMutation({
     mutationFn: async ({ slot }: { slot: 'weapon' | 'armor' | 'accessory' }) => {
-      return apiRequest('/api/equipment/unequip', {
-        method: 'POST',
-        body: JSON.stringify({ slot })
-      });
+      return apiRequest("POST", "/api/equipment/unequip", { slot });
     },
     onSuccess: () => {
       // Invalidate related queries

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Check, Link2, Flame } from "lucide-react";
+import { Calendar, Check, Link2, Flame, XCircle } from "lucide-react";
 import { OniMaskIcon, ShurikenIcon, MeditationIcon, ScrollIcon } from "./icons/japanese-icons";
 import { Tsutome } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
@@ -9,15 +9,31 @@ import { ja } from "date-fns/locale";
 import { ImageWithFallback } from "./image-with-fallback";
 import { motion, AnimatePresence } from "framer-motion";
 import { taskCardAnimation, successAnimation, rippleEffect } from "@/lib/animations";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface TsutomeCardProps {
   tsutome: Tsutome;
   onComplete?: () => void;
+  onCancel?: () => void;
   onClick?: () => void;
   linkSource?: {
     type: "shuren" | "shihan";
     name: string;
     bonus?: number; // ボーナス報酬パーセンテージ
+    continuousDays?: number;
+    totalDays?: number;
+    progress?: number;
+    breakdown?: Record<string, number>;
+    total?: number;
   };
 }
 
@@ -38,7 +54,7 @@ const genreLabels: Record<string, string> = {
   fun: "遊び",
 };
 
-export const TsutomeCard = React.memo(function TsutomeCard({ tsutome, onComplete, onClick, linkSource }: TsutomeCardProps) {
+export const TsutomeCard = React.memo(function TsutomeCard({ tsutome, onComplete, onCancel, onClick, linkSource }: TsutomeCardProps) {
   const stars = difficultyStars[tsutome.difficulty] || 3;
   const deadline = new Date(tsutome.deadline);
   const isOverdue = deadline < new Date();
@@ -47,6 +63,7 @@ export const TsutomeCard = React.memo(function TsutomeCard({ tsutome, onComplete
   const [swipeOffset, setSwipeOffset] = React.useState(0);
   const [isSwiping, setIsSwiping] = React.useState(false);
   const touchStartX = React.useRef(0);
+  const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
 
   // タッチイベントハンドラー
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -188,13 +205,25 @@ export const TsutomeCard = React.memo(function TsutomeCard({ tsutome, onComplete
                     <ScrollIcon />
                   </div>
                 )}
-                <span className="text-accent font-medium">{linkSource.name}</span>
-                {linkSource.bonus && linkSource.bonus > 0 && (
-                  <div className="flex items-center gap-0.5 ml-1">
-                    <Flame className="w-3 h-3 text-exp" />
-                    <span className="text-exp font-bold">+{linkSource.bonus}%</span>
+                <div className="flex flex-col leading-tight">
+                  <div className="flex items-center gap-1">
+                    <span className="text-accent font-medium">{linkSource.name}</span>
+                    {linkSource.bonus && linkSource.bonus > 0 && (
+                      <div className="flex items-center gap-0.5">
+                        <Flame className="w-3 h-3 text-exp" />
+                        <span className="text-exp font-bold">+{linkSource.bonus}%</span>
+                      </div>
+                    )}
                   </div>
-                )}
+                  {linkSource.type === "shuren" && (
+                    <span className="text-[10px] text-muted-foreground">
+                      継続{linkSource.continuousDays ?? 0}日 / 通算{linkSource.totalDays ?? 0}日
+                    </span>
+                  )}
+                  {linkSource.type === "shihan" && typeof linkSource.progress === "number" && (
+                    <span className="text-[10px] text-muted-foreground">進捗{linkSource.progress}%</span>
+                  )}
+                </div>
               </div>
             )}
             
@@ -222,29 +251,69 @@ export const TsutomeCard = React.memo(function TsutomeCard({ tsutome, onComplete
 
           {/* アクションボタン - 和風スタイル */}
           {onComplete && !tsutome.completed && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="mt-2 w-full japanese-shadow border-foreground/30 hover:border-primary/50 
-                transition-all duration-300"
-              onClick={(e) => {
-                e.stopPropagation();
-                onComplete();
-              }}
-              data-testid="button-complete-task"
-            >
-              <Check className="w-4 h-4 mr-2" />
-              <span className="font-serif">討伐完了</span>
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-2 w-full japanese-shadow border-foreground/30 hover:border-primary/50               transition-all duration-300"
+            onClick={(e) => {
+              e.stopPropagation();
+              onComplete();
+            }}
+            data-testid="button-complete-task"
+          >
+            <Check className="w-4 h-4 mr-2" />
+            <span className="font-serif">討伐する</span>
+          </Button>
+        )}
 
-          {tsutome.completed && (
-            <div className="inline-flex items-center gap-2 px-3 py-1 
-              bg-primary/10 border border-primary/30 japanese-shadow">
-              <Check className="w-3 h-3 text-primary" />
-              <span className="text-xs font-serif text-primary">討伐済み</span>
-            </div>
-          )}
+        {onCancel && !tsutome.completed && !tsutome.cancelled && (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="mt-2 w-full japanese-shadow border-destructive/30 text-destructive hover:border-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowCancelConfirm(true);
+            }}
+            data-testid="button-cancel-task"
+          >
+            <XCircle className="w-4 h-4 mr-2" />
+            <span className="font-serif">キャンセル</span>
+          </Button>
+        )}
+
+        {tsutome.completed && (
+          <div className="inline-flex items-center gap-2 px-3 py-1             bg-primary/10 border border-primary/30 japanese-shadow">
+            <Check className="w-3 h-3 text-primary" />
+            <span className="text-xs font-serif text-primary">完了済み</span>
+          </div>
+        )}
+
+        <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>キャンセルしますか？</AlertDialogTitle>
+              <AlertDialogDescription>
+                HP-20 / コイン-100 / EXP-50 のペナルティを受けます。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>戻る</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowCancelConfirm(false);
+                  onCancel?.();
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="button-confirm-cancel"
+              >
+                キャンセルする
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         </div>
       </div>
     </motion.div>

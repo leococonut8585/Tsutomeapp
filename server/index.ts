@@ -4,8 +4,14 @@ import { setupVite, serveStatic } from "./vite";
 import * as cron from "node-cron";
 import { executeDailyReset, executeHourlyCheck } from "./cron";
 import { logger } from "./utils/logger";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { storage } from "./storage";
 
 const app = express();
+app.set('trust proxy', 1);
+const PgSession = connectPgSimple(session);
+const SESSION_SECRET = process.env.SESSION_SECRET || "tsutomeapp-secret";
 
 declare module 'http' {
   interface IncomingMessage {
@@ -18,6 +24,47 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ extended: false }));
+
+app.use(
+  session({
+    store: process.env.DATABASE_URL
+      ? new PgSession({
+          conString: process.env.DATABASE_URL,
+          createTableIfMissing: true,
+        })
+      : undefined,
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: app.get("env") === "production",
+      sameSite: "lax",
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+    },
+  })
+);
+
+app.use(async (req, _res, next) => {
+  const userId = req.session.userId;
+  if (!userId) {
+    req.user = undefined;
+    return next();
+  }
+  try {
+    const player = await storage.getPlayer(userId);
+    if (!player || player.suspended) {
+      delete req.session.userId;
+      req.user = undefined;
+    } else {
+      req.user = player;
+    }
+  } catch (error) {
+    logger.error("Failed to hydrate session user", { error });
+    req.user = undefined;
+  }
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -86,7 +133,6 @@ app.use((req, res, next) => {
         logger.error("[CRON] Daily reset failed:", error);
       }
     }, {
-      scheduled: true,
       timezone: "UTC" // Using UTC to ensure consistency
     });
     
@@ -100,7 +146,6 @@ app.use((req, res, next) => {
         logger.error("[CRON] Hourly check failed:", error);
       }
     }, {
-      scheduled: true,
       timezone: "UTC"
     });
     

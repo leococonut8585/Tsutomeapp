@@ -9,6 +9,42 @@ import { logger } from "./utils/logger";
 // Create a child logger for cron module
 const cronLogger = logger.child("CRON");
 
+interface StatBonus {
+  wisdom: number;
+  strength: number;
+  agility: number;
+  vitality: number;
+  luck: number;
+}
+
+function parseStatBoost(boost?: string | null): Partial<StatBonus> {
+  if (!boost) return {};
+  try {
+    const parsed = typeof boost === "string" ? JSON.parse(boost) : boost;
+    return parsed || {};
+  } catch {
+    return {};
+  }
+}
+
+async function getEquipmentBonus(playerId: string): Promise<StatBonus> {
+  const inventories = await storage.getPlayerInventory(playerId);
+  const equipped = inventories.filter((inv) => inv.equipped);
+  const bonus: StatBonus = { wisdom: 0, strength: 0, agility: 0, vitality: 0, luck: 0 };
+
+  for (const inv of equipped) {
+    const item = await storage.getItem(inv.itemId);
+    if (!item) continue;
+    const effects = parseStatBoost(item.statBoost);
+    for (const [key, value] of Object.entries(effects)) {
+      if (key in bonus && typeof value === "number") {
+        bonus[key as keyof StatBonus] += value;
+      }
+    }
+  }
+  return bonus;
+}
+
 // Convert current time to JST (UTC+9)
 function toJST(date: Date = new Date()): Date {
   const jstOffset = 9 * 60; // JST is UTC+9
@@ -48,11 +84,9 @@ function getRandomAssassinTheme(): string {
 // Get random difficulty for assassin tasks
 function getRandomDifficulty(): "easy" | "normal" | "hard" | "veryHard" {
   const difficulties: ("easy" | "normal" | "hard" | "veryHard")[] = ["easy", "normal", "hard", "veryHard"];
-  // Weighted selection - more easy/normal tasks
-  const weights = [30, 40, 25, 5]; // easy: 30%, normal: 40%, hard: 25%, veryHard: 5%
+  const weights = [30, 40, 25, 5];
   const totalWeight = weights.reduce((a, b) => a + b, 0);
   let random = Math.random() * totalWeight;
-  
   for (let i = 0; i < weights.length; i++) {
     random -= weights[i];
     if (random <= 0) {
@@ -61,6 +95,16 @@ function getRandomDifficulty(): "easy" | "normal" | "hard" | "veryHard" {
   }
   return "normal";
 }
+
+const miniTasksForBoss: string[] = [
+  "腹筋10回",
+  "腕立て5回",
+  "水を一杯飲む",
+  "誰かにありがとうを伝える",
+  "深呼吸を3回",
+  "ストレッチを2分",
+  "部屋を1分片付ける",
+];
 
 // Daily Reset - Runs at 0:00 JST
 export async function executeDailyReset(): Promise<void> {
@@ -105,12 +149,16 @@ export async function executeDailyReset(): Promise<void> {
         const expiresAt = new Date(Date.now() + hoursToExpire * 60 * 60 * 1000);
         
         // Generate AI assassin name
-        const assassinName = await generateAssassinName(theme, difficulty);
+        const assassinName = await generateAssassinName(theme, difficulty, {
+          playerId: player.id,
+        });
         
         // Generate assassin image
         let assassinImageUrl = null;
         try {
-          assassinImageUrl = await generateImage(`${assassinName} - ${theme}`, "assassin");
+          assassinImageUrl = await generateImage(`${assassinName} - ${theme}`, "assassin", {
+            playerId: player.id,
+          });
         } catch (error) {
           cronLogger.error("Failed to generate assassin image:", error);
         }
@@ -121,10 +169,9 @@ export async function executeDailyReset(): Promise<void> {
           difficulty,
           assassinName,
           assassinImageUrl,
-          expiresAt,
         };
         
-        await storage.createShikaku(shikaku);
+        await storage.createShikaku({ ...shikaku, expiresAt } as any);
         cronLogger.info(`Created assassin task: ${assassinName} - ${theme}`);
       } catch (error) {
         cronLogger.error("Failed to create assassin task:", error);
@@ -143,17 +190,56 @@ export async function executeDailyReset(): Promise<void> {
       cronLogger.info("Current boss defeated, ready for next boss");
       // Boss generation is handled when player challenges next boss
     } else {
+      // Boss auto attack once per day
+      const equipBonus = await getEquipmentBonus(player.id);
+      const effectiveVitality = player.vitality + equipBonus.vitality;
+      const playerDamage = Math.max(1, Math.floor(currentBoss.attackPower * 0.85) - Math.floor(effectiveVitality * 0.65));
+      if (playerDamage > 0) {
+        const newHp = Math.max(0, player.hp - playerDamage);
+        await storage.updatePlayer(player.id, { hp: newHp });
+        cronLogger.info(`Boss auto-attack dealt ${playerDamage} damage to player (HP ${player.hp} -> ${newHp})`);
+        if (newHp <= 0) {
+          cronLogger.info("Player died from boss auto-attack, handling death");
+          await storage.handlePlayerDeath(player.id);
+        }
+      }
+
       // Check if boss challenge period expired
       const challengeStartDate = currentBoss.challengeStartDate;
       if (challengeStartDate) {
         const daysSinceChallenge = Math.floor((now.getTime() - new Date(challengeStartDate).getTime()) / (1000 * 60 * 60 * 24));
-        if (daysSinceChallenge > 7) {
-          // Reset boss challenge after 7 days of inactivity
-          await storage.updateBoss(currentBoss.id, { 
-            challengeStartDate: null,
-            lastAttackDate: null 
+        if (daysSinceChallenge >= 7) {
+          // After 7 days, impose a simple mini-task (as shikaku) each day
+          const existingShikakus = await storage.getAllShikakus(player.id);
+          const activeBossMiniTask = existingShikakus.find((s) => {
+            if (s.assassinName !== "ボスの試練") return false;
+            if (s.completed) return false;
+            if (!s.expiresAt) return true;
+            return new Date(s.expiresAt) > now;
           });
-          cronLogger.info("Reset boss challenge due to inactivity");
+          const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const recentlyCreated = existingShikakus.find((s) => {
+            if (s.assassinName !== "ボスの試練") return false;
+            const createdAt = (s as any).createdAt ? new Date((s as any).createdAt) : null;
+            return createdAt ? createdAt > twentyFourHoursAgo : false;
+          });
+
+          if (!activeBossMiniTask && !recentlyCreated) {
+            const miniTaskTitle = miniTasksForBoss[Math.floor(Math.random() * miniTasksForBoss.length)];
+            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+            const difficulty = currentBoss.bossNumber >= 5 ? "normal" : "easy";
+            await storage.createShikaku({
+              playerId: player.id,
+              title: miniTaskTitle,
+              difficulty,
+              assassinName: "ボスの試練",
+              assassinImageUrl: null,
+              expiresAt,
+            } as any);
+            cronLogger.info(`Generated boss mini-task: ${miniTaskTitle} (${difficulty})`);
+          } else {
+            cronLogger.info("Boss mini-task already active, skipping creation");
+          }
         }
       }
     }
@@ -249,6 +335,13 @@ export async function executeHourlyCheck(): Promise<void> {
         const newMissedCount = shuren.missedCount + 1;
         
         if (newMissedCount >= 5) {
+          // Apply penalty for abandoning the habit
+          const coinPenalty = Math.max(10, Math.floor(player.coins * 0.1));
+          const expPenalty = Math.min(player.exp, 50);
+          await storage.updatePlayer(player.id, {
+            coins: Math.max(0, player.coins - coinPenalty),
+            exp: Math.max(0, player.exp - expPenalty),
+          });
           // Delete shuren after 5 misses
           await storage.deleteShuren(shuren.id);
           cronLogger.info(`Deleted shuren "${shuren.title}" after 5 misses`);

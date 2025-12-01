@@ -11,6 +11,54 @@ import { useLocation } from "wouter";
 import { useEquipItem, useUnequipItem, useEquipment } from "@/hooks/use-equipment";
 import { ImageWithFallback } from "@/components/image-with-fallback";
 
+type InventoryWithItem = Inventory & { item?: Item };
+
+const resolveSlot = (item: Item): "weapon" | "armor" | "accessory" | null => {
+  if (item.itemType === "weapon") return "weapon";
+  if (item.itemType === "armor") return "armor";
+  if (item.itemType === "accessory") return "accessory";
+  if (item.itemType === "equipment") return "weapon"; // generic equipment扱い
+  return null;
+};
+
+const parseStatBoost = (boost?: string | null): Record<string, number> => {
+  if (!boost) return {};
+  try {
+    const parsed = typeof boost === "string" ? JSON.parse(boost) : boost;
+    return parsed ?? {};
+  } catch {
+    return {};
+  }
+};
+
+const formatEffects = (effects: Record<string, number>): string => {
+  const labelMap: Record<string, string> = {
+    wisdom: "知略",
+    strength: "武勇",
+    agility: "敏捷",
+    vitality: "耐久",
+    luck: "運気",
+  };
+  const entries = Object.entries(effects).filter(([, v]) => typeof v === "number");
+  if (entries.length === 0) return "補正なし";
+  return entries
+    .map(([key, value]) => `${labelMap[key] ?? key} +${value}`)
+    .join(" / ");
+};
+
+const computeEquipmentBonus = (items: Item[]) => {
+  const bonus = { wisdom: 0, strength: 0, agility: 0, vitality: 0, luck: 0 };
+  for (const item of items) {
+    const effects = parseStatBoost(item.statBoost);
+    for (const [key, value] of Object.entries(effects)) {
+      if (key in bonus) {
+        bonus[key as keyof typeof bonus] += value as number;
+      }
+    }
+  }
+  return bonus;
+};
+
 export default function EquipmentPage() {
   const [, setLocation] = useLocation();
   const equipItem = useEquipItem();
@@ -25,25 +73,21 @@ export default function EquipmentPage() {
   const { data: equippedItems = [], isLoading: loadingEquipped } = useEquipment();
   
   // Fetch inventory
-  const { data: inventories = [] } = useQuery<Inventory[]>({
+  const { data: inventories = [] } = useQuery<InventoryWithItem[]>({
     queryKey: ["/api/inventories"],
   });
   
   // Get equipped items by slot
   const getEquippedItem = (slot: 'weapon' | 'armor' | 'accessory') => {
-    return equippedItems.find(item => {
-      if (slot === 'weapon' && item.itemType === 'weapon') return true;
-      if (slot === 'armor' && item.itemType === 'armor') return true;
-      if (slot === 'accessory' && item.itemType === 'accessory') return true;
-      return false;
-    });
+    return equippedItems.find(item => resolveSlot(item) === slot);
   };
   
   // Get equippable items from inventory
   const getEquippableItems = (type: 'weapon' | 'armor' | 'accessory') => {
     return inventories
-      .filter(inv => inv.item.itemType === type && !inv.equipped)
-      .map(inv => inv.item);
+      .filter(inv => inv.item && resolveSlot(inv.item) === type && !inv.equipped)
+      .map(inv => inv.item!)
+      .filter(Boolean);
   };
   
   const weaponItem = getEquippedItem('weapon');
@@ -55,13 +99,7 @@ export default function EquipmentPage() {
   const accessories = getEquippableItems('accessory');
   
   // Calculate equipment bonuses
-  const equipmentBonus = {
-    strength: player?.equipmentBonus?.strength || 0,
-    defense: player?.equipmentBonus?.defense || 0,
-    vitality: player?.equipmentBonus?.vitality || 0,
-    intelligence: player?.equipmentBonus?.intelligence || 0,
-    agility: player?.equipmentBonus?.agility || 0,
-  };
+  const equipmentBonus = computeEquipmentBonus(equippedItems);
   
   return (
     <div className="min-h-screen pb-24 bg-background">
@@ -111,7 +149,7 @@ export default function EquipmentPage() {
                   <>
                     <p className="text-sm font-medium">{weaponItem.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      攻撃力 +{weaponItem.effects?.strength || 0}
+                      {formatEffects(parseStatBoost(weaponItem.statBoost))}
                     </p>
                     <Button
                       size="sm"
@@ -157,7 +195,7 @@ export default function EquipmentPage() {
                   <>
                     <p className="text-sm font-medium">{armorItem.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      防御力 +{armorItem.effects?.defense || 0}
+                      {formatEffects(parseStatBoost(armorItem.statBoost))}
                     </p>
                     <Button
                       size="sm"
@@ -203,8 +241,7 @@ export default function EquipmentPage() {
                   <>
                     <p className="text-sm font-medium">{accessoryItem.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {accessoryItem.effects?.vitality && `活力 +${accessoryItem.effects.vitality}`}
-                      {accessoryItem.effects?.intelligence && ` 知力 +${accessoryItem.effects.intelligence}`}
+                      {formatEffects(parseStatBoost(accessoryItem.statBoost))}
                     </p>
                     <Button
                       size="sm"
@@ -228,52 +265,52 @@ export default function EquipmentPage() {
         {/* Stats Preview */}
         {player && (
           <Card className="p-4">
-            <h3 className="font-bold mb-3">装備効果</h3>
+            <h3 className="font-bold mb-3">装備後ステータス</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span>攻撃力</span>
+                <span>武勇</span>
                 <span>
-                  {player.strength - equipmentBonus.strength} 
-                  <span className="text-accent"> +{equipmentBonus.strength}</span> 
-                  <span className="font-bold"> = {player.strength}</span>
+                  {player.strength}
+                  <span className="text-accent"> +{equipmentBonus.strength}</span>
+                  <span className="font-bold"> = {player.strength + equipmentBonus.strength}</span>
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>防御力</span>
+                <span>耐久</span>
                 <span>
-                  {player.defense - equipmentBonus.defense} 
-                  <span className="text-accent"> +{equipmentBonus.defense}</span> 
-                  <span className="font-bold"> = {player.defense}</span>
+                  {player.vitality}
+                  <span className="text-accent"> +{equipmentBonus.vitality}</span>
+                  <span className="font-bold"> = {player.vitality + equipmentBonus.vitality}</span>
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>活力</span>
+                <span>知略</span>
                 <span>
-                  {player.vitality - equipmentBonus.vitality} 
-                  <span className="text-accent"> +{equipmentBonus.vitality}</span> 
-                  <span className="font-bold"> = {player.vitality}</span>
+                  {player.wisdom}
+                  <span className="text-accent"> +{equipmentBonus.wisdom}</span>
+                  <span className="font-bold"> = {player.wisdom + equipmentBonus.wisdom}</span>
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>知力</span>
+                <span>敏捷</span>
                 <span>
-                  {player.intelligence - equipmentBonus.intelligence} 
-                  <span className="text-accent"> +{equipmentBonus.intelligence}</span> 
-                  <span className="font-bold"> = {player.intelligence}</span>
+                  {player.agility}
+                  <span className="text-accent"> +{equipmentBonus.agility}</span>
+                  <span className="font-bold"> = {player.agility + equipmentBonus.agility}</span>
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>敏捷性</span>
+                <span>運気</span>
                 <span>
-                  {player.agility - equipmentBonus.agility} 
-                  <span className="text-accent"> +{equipmentBonus.agility}</span> 
-                  <span className="font-bold"> = {player.agility}</span>
+                  {player.luck}
+                  <span className="text-accent"> +{equipmentBonus.luck}</span>
+                  <span className="font-bold"> = {player.luck + equipmentBonus.luck}</span>
                 </span>
               </div>
             </div>
           </Card>
         )}
-        
+
         {/* Inventory Tabs */}
         <Card className="p-4">
           <h3 className="font-bold mb-3">所持装備</h3>
@@ -291,7 +328,7 @@ export default function EquipmentPage() {
                     <div>
                       <p className="font-medium">{item.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        攻撃力 +{item.effects?.strength || 0}
+                        {formatEffects(parseStatBoost(item.statBoost))}
                       </p>
                     </div>
                     <Button
@@ -318,7 +355,7 @@ export default function EquipmentPage() {
                     <div>
                       <p className="font-medium">{item.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        防御力 +{item.effects?.defense || 0}
+                        {formatEffects(parseStatBoost(item.statBoost))}
                       </p>
                     </div>
                     <Button
@@ -345,8 +382,7 @@ export default function EquipmentPage() {
                     <div>
                       <p className="font-medium">{item.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {item.effects?.vitality && `活力 +${item.effects.vitality}`}
-                        {item.effects?.intelligence && ` 知力 +${item.effects.intelligence}`}
+                        {formatEffects(parseStatBoost(item.statBoost))}
                       </p>
                     </div>
                     <Button

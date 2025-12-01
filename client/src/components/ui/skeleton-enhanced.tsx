@@ -3,7 +3,8 @@ import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 // 高品質なスケルトンコンポーネント with シマーエフェクト
-interface SkeletonEnhancedProps extends React.HTMLAttributes<HTMLDivElement> {
+interface SkeletonEnhancedProps {
+  className?: string;
   variant?: "text" | "circular" | "rectangular" | "card";
   width?: string | number;
   height?: string | number;
@@ -25,7 +26,7 @@ export function SkeletonEnhanced({
     card: "rounded-lg",
   };
 
-  const shimmerAnimation = {
+  const animationVariants = {
     wave: {
       backgroundPosition: ["200% 0", "-200% 0"],
       transition: {
@@ -34,9 +35,6 @@ export function SkeletonEnhanced({
         ease: "easeInOut",
       },
     },
-  };
-
-  const pulseAnimation = {
     pulse: {
       opacity: [0.5, 1, 0.5],
       transition: {
@@ -47,7 +45,7 @@ export function SkeletonEnhanced({
     },
   };
 
-  const animationVariant = animation === "wave" ? shimmerAnimation : animation === "pulse" ? pulseAnimation : {};
+  const animateKey = animation === "none" ? undefined : (animation === "wave" ? "wave" : animation === "pulse" ? "pulse" : undefined);
 
   return (
     <motion.div
@@ -64,9 +62,8 @@ export function SkeletonEnhanced({
           : undefined,
         backgroundSize: animation === "wave" ? "200% 100%" : undefined,
       }}
-      animate={animation !== "none" ? animation : undefined}
-      variants={animationVariant}
-      {...props}
+      animate={animateKey}
+      variants={animationVariants}
     />
   );
 }

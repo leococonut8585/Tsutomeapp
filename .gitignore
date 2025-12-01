@@ -4,3 +4,8 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+tsutomeapp_ed25519
+tsutomeapp_ed25519.pub
+local-notes/
+test-results/  
+playwright-report/ 

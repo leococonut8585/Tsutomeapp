@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Calendar, Archive, Briefcase, Heart, Sparkles, Settings, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Calendar, Archive, Briefcase, Heart, Sparkles, Settings, CheckCircle2, LogOut } from "lucide-react";
 import { WisdomIcon, KatanaIcon, ThunderIcon, VigorIcon, FortuneIcon } from "@/components/icons/japanese-icons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Player, AIStrictness } from "@shared/schema";
@@ -16,6 +16,7 @@ import { getJobById, getJobIcon } from "@/lib/jobs";
 import { DropStatistics } from "@/components/drop-statistics";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { PasswordChangeForm } from "@/components/password-change-form";
 
 export default function ProfilePage() {
   const [, setLocation] = useLocation();
@@ -25,6 +26,24 @@ export default function ProfilePage() {
   // プレイヤー情報取得
   const { data: player, isLoading } = useQuery<Player>({
     queryKey: ["/api/player"],
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/logout");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+      queryClient.removeQueries({ queryKey: ["/api/player"] });
+      setLocation("/login");
+    },
+    onError: () => {
+      toast({
+        title: "エラー",
+        description: "ログアウトに失敗しました",
+        variant: "destructive",
+      });
+    },
   });
 
   // AI厳しさ更新ミューテーション
@@ -446,14 +465,32 @@ export default function ProfilePage() {
                   </div>
                 </Card>
 
-                {/* その他の設定（将来の拡張用） */}
                 <Card className="p-6 space-y-4">
                   <div className="space-y-2">
-                    <h3 className="font-serif font-bold text-lg">その他の設定</h3>
+                    <h3 className="font-serif font-bold text-lg">パスワードを変更</h3>
                     <p className="text-sm text-muted-foreground">
-                      今後、追加の設定項目がここに表示されます
+                      現在のパスワードと新しいパスワードを入力してください
                     </p>
                   </div>
+                  <PasswordChangeForm />
+                </Card>
+
+                <Card className="p-6 space-y-4">
+                  <div className="space-y-2">
+                    <h3 className="font-serif font-bold text-lg">アカウント</h3>
+                    <p className="text-sm text-muted-foreground">
+                      セッションを終了する場合はログアウトを選択してください
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => logoutMutation.mutate()}
+                    disabled={logoutMutation.isPending}
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    {logoutMutation.isPending ? "ログアウト中..." : "ログアウト"}
+                  </Button>
                 </Card>
               </>
             ) : (

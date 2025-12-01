@@ -4,6 +4,21 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Package, Star, Sparkles, Gem, TrendingUp } from "lucide-react";
 
+type DropStatisticsResponse = {
+  totalDrops: number;
+  byRarity: Record<string, number>;
+  mostCommon: { itemId: string; count: number; item?: { name: string; rarity?: string } }[];
+  recentDrops: {
+    id: string;
+    itemId: string;
+    quantity: number;
+    rarity?: string;
+    isBonus?: boolean;
+    droppedAt: string | Date;
+    item?: { name: string; rarity?: string };
+  }[];
+};
+
 // レアリティ設定
 const rarityConfig: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   common: { icon: Package, color: "text-gray-500", label: "コモン" },
@@ -13,7 +28,7 @@ const rarityConfig: Record<string, { icon: React.ElementType; color: string; lab
 };
 
 export function DropStatistics() {
-  const { data: statistics, isLoading } = useQuery({
+  const { data: statistics, isLoading } = useQuery<DropStatisticsResponse>({
     queryKey: ["/api/drop-statistics"],
   });
 
@@ -37,6 +52,13 @@ export function DropStatistics() {
 
   if (!statistics) return null;
 
+  const safeStats: DropStatisticsResponse = {
+    totalDrops: statistics.totalDrops ?? 0,
+    byRarity: statistics.byRarity ?? {},
+    mostCommon: statistics.mostCommon ?? [],
+    recentDrops: statistics.recentDrops ?? [],
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -48,7 +70,7 @@ export function DropStatistics() {
       <CardContent className="space-y-6">
         {/* 総ドロップ数 */}
         <div className="text-center p-4 bg-muted rounded-lg">
-          <div className="text-3xl font-bold">{statistics.totalDrops}</div>
+          <div className="text-3xl font-bold">{safeStats.totalDrops}</div>
           <div className="text-sm text-muted-foreground">総ドロップ数</div>
         </div>
 
@@ -56,7 +78,7 @@ export function DropStatistics() {
         <div>
           <h4 className="font-semibold mb-3">レアリティ別</h4>
           <div className="grid grid-cols-2 gap-2">
-            {Object.entries(statistics.byRarity).map(([rarity, count]) => {
+            {Object.entries(safeStats.byRarity).map(([rarity, count]) => {
               const config = rarityConfig[rarity];
               if (!config) return null;
               const Icon = config.icon;
@@ -78,11 +100,11 @@ export function DropStatistics() {
         </div>
 
         {/* よく獲得するアイテム */}
-        {statistics.mostCommon && statistics.mostCommon.length > 0 && (
+{safeStats.mostCommon && safeStats.mostCommon.length > 0 && (
           <div>
             <h4 className="font-semibold mb-3">よく獲得するアイテム</h4>
             <div className="space-y-2">
-              {statistics.mostCommon.map((entry: any) => (
+{safeStats.mostCommon.map((entry) => (
                 <div
                   key={entry.itemId}
                   className="flex items-center justify-between p-2 rounded-lg border bg-card"
@@ -109,11 +131,11 @@ export function DropStatistics() {
         )}
 
         {/* 最近のドロップ */}
-        {statistics.recentDrops && statistics.recentDrops.length > 0 && (
+{safeStats.recentDrops && safeStats.recentDrops.length > 0 && (
           <div>
             <h4 className="font-semibold mb-3">最近のドロップ</h4>
             <div className="space-y-2 max-h-48 overflow-y-auto">
-              {statistics.recentDrops.map((drop: any) => (
+{safeStats.recentDrops.map((drop) => (
                 <div
                   key={drop.id}
                   className="flex items-center justify-between p-2 rounded-lg border bg-card text-sm"

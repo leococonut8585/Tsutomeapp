@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, real, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -16,28 +16,43 @@ export const taskTypeEnum = z.enum(["tsutome", "shuren", "shihan", "shikaku"]);
 export type TaskType = z.infer<typeof taskTypeEnum>;
 
 // Player (プレイヤー)
-export const players = pgTable("players", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  level: integer("level").notNull().default(1),
-  exp: integer("exp").notNull().default(0),
-  hp: integer("hp").notNull().default(100),
-  maxHp: integer("maxHp").notNull().default(100),
-  coins: integer("coins").notNull().default(0),
-  // 5つのステータス
-  wisdom: integer("wisdom").notNull().default(10), // 知略
-  strength: integer("strength").notNull().default(10), // 武勇
-  agility: integer("agility").notNull().default(10), // 敏捷
-  vitality: integer("vitality").notNull().default(10), // 耐久
-  luck: integer("luck").notNull().default(10), // 運気
-  // Job system fields
-  job: varchar("job").notNull().default("novice"),
-  jobLevel: integer("job_level").notNull().default(1),
-  jobXp: integer("job_xp").notNull().default(0),
-  skills: text("skills").array().notNull().default(sql`'{}'::text[]`),
-  streak: integer("streak").notNull().default(0), // Daily completion streak
-  createdAt: timestamp("created_at").defaultNow(),
-});
+export const players = pgTable(
+  "players",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    name: text("name").notNull(),
+    username: varchar("username", { length: 80 }).notNull(),
+    passwordPlain: text("password_plain").notNull(),
+    role: varchar("role", { length: 20 }).notNull().default("player"),
+    suspended: boolean("suspended").notNull().default(false),
+    level: integer("level").notNull().default(1),
+    exp: integer("exp").notNull().default(0),
+    hp: integer("hp").notNull().default(100),
+    maxHp: integer("maxHp").notNull().default(100),
+    coins: integer("coins").notNull().default(0),
+    monthlyApiCalls: integer("monthly_api_calls").notNull().default(0),
+    monthlyApiCost: real("monthly_api_cost").notNull().default(0),
+    apiUsageResetAt: timestamp("api_usage_reset_at").defaultNow(),
+    // 5�̃X�e�[�^�X
+    wisdom: integer("wisdom").notNull().default(10), // �m��
+    strength: integer("strength").notNull().default(10), // ���E
+    agility: integer("agility").notNull().default(10), // �q��
+    vitality: integer("vitality").notNull().default(10), // �ϋv
+    luck: integer("luck").notNull().default(10), // �^�C
+    // Job system fields
+    job: varchar("job").notNull().default("novice"),
+    jobLevel: integer("job_level").notNull().default(1),
+    jobXp: integer("job_xp").notNull().default(0),
+    skills: text("skills").array().notNull().default(sql`'{}'::text[]`),
+    streak: integer("streak").notNull().default(0), // Daily completion streak
+    // Settings
+    aiStrictness: varchar("ai_strictness").notNull().default("lenient"), // AI�R���̌�����
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    usernameIdx: uniqueIndex("players_username_unique").on(table.username),
+  })
+);
 
 // 務メ (Tsutome - 消化タスク)
 export const tsutomes = pgTable("tsutomes", {
@@ -59,6 +74,7 @@ export const tsutomes = pgTable("tsutomes", {
   completedAt: timestamp("completed_at"),
   cancelled: boolean("cancelled").notNull().default(false),
   strengthLevel: integer("strength_level").notNull().default(1), // 放置による強化レベル
+  lastPenaltyDate: timestamp("last_penalty_date"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -173,7 +189,7 @@ export const inventories = pgTable("inventories", {
 
 // Insert Schemas
 export const insertPlayerSchema = createInsertSchema(players).omit({ id: true, createdAt: true });
-export const insertTsutomeSchema = createInsertSchema(tsutomes).omit({ id: true, createdAt: true, completed: true, completedAt: true, cancelled: true, strengthLevel: true });
+export const insertTsutomeSchema = createInsertSchema(tsutomes).omit({ id: true, createdAt: true, completed: true, completedAt: true, cancelled: true, strengthLevel: true, lastPenaltyDate: true });
 export const insertShurenSchema = createInsertSchema(shurens).omit({ id: true, createdAt: true, continuousDays: true, totalDays: true, lastCompletedAt: true, missedCount: true, active: true });
 export const insertShihanSchema = createInsertSchema(shihans).omit({ id: true, createdAt: true, completed: true, completedAt: true });
 export const insertShikakuSchema = createInsertSchema(shikakus).omit({ id: true, createdAt: true, completed: true, completedAt: true });

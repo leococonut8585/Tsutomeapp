@@ -10,6 +10,14 @@ import { ImageWithFallback } from "./image-with-fallback";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
+type ShihanProgress = {
+  linkedTasks?: {
+    progress?: number;
+    completed?: number;
+    total?: number;
+  };
+};
+
 interface ShihanCardProps {
   shihan: Shihan;
   onComplete?: () => void;
@@ -31,7 +39,7 @@ export function ShihanCard({ shihan, onComplete, onClick, onGenerateTsutome }: S
   const daysRemaining = differenceInDays(targetDate, new Date());
   
   // 師範の進捗状況を取得
-  const { data: progressData } = useQuery({
+  const { data: progressData } = useQuery<ShihanProgress>({
     queryKey: [`/api/shihans/${shihan.id}/progress`],
     enabled: !shihan.completed,
   });
