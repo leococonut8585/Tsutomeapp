@@ -19,6 +19,7 @@ import {
 } from "./cron";
 import { logger } from "./utils/logger";
 import { randomBytes } from "crypto";
+import { apiRateLimiters, validateInput } from "./middleware/security";
 
 // Create a child logger for routes module
 const routesLogger = logger.child("Routes");
@@ -118,7 +119,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  app.post("/api/login", async (req, res) => {
+  // 入力検証ミドルウェアをAPIに適用
+  app.use("/api", validateInput);
+
+  app.post("/api/login", apiRateLimiters.login, async (req, res) => {
     try {
       const { username, password } = req.body || {};
       if (!username || !password) {
@@ -172,7 +176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // ============ Image Generation ============
-  app.post("/api/generate-image", async (req, res) => {
+  app.post("/api/generate-image", apiRateLimiters.aiGeneration, async (req, res) => {
     try {
       const { prompt, type } = req.body;
       
@@ -262,7 +266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============ Admin ============
-  app.get("/api/admin/users", adminOnly, async (_req, res) => {
+  app.get("/api/admin/users", adminOnly, apiRateLimiters.admin, async (_req, res) => {
     try {
       const players = await storage.listPlayers();
       res.json({ users: players.map(mapAdminUser) });
@@ -357,7 +361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/users", adminOnly, async (req, res) => {
+  app.post("/api/admin/users", adminOnly, apiRateLimiters.admin, async (req, res) => {
     try {
       const { username, password, role = "player", name } = req.body || {};
       const trimmedUsername = typeof username === "string" ? username.trim() : "";
@@ -656,7 +660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tsutomes", async (req, res) => {
+  app.post("/api/tsutomes", apiRateLimiters.taskCreation, async (req, res) => {
     routesLogger.debug("POST /api/tsutomes - Request received");
     try {
       const player = req.user!;
@@ -1199,7 +1203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/shurens", async (req, res) => {
+  app.post("/api/shurens", apiRateLimiters.taskCreation, async (req, res) => {
     try {
       const player = req.user!;
       if (!player) {
@@ -1360,7 +1364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/shihans", async (req, res) => {
+  app.post("/api/shihans", apiRateLimiters.taskCreation, async (req, res) => {
     try {
       const player = req.user!;
       if (!player) {
@@ -1718,7 +1722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/shikakus", async (req, res) => {
+  app.post("/api/shikakus", apiRateLimiters.taskCreation, async (req, res) => {
     try {
       const player = req.user!;
       if (!player) {

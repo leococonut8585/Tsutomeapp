@@ -298,17 +298,4 @@ export async function createTestAdmin(
   return storage.createPlayer({ ...defaults, ...override });
 }
 
-// Express session 型拡張
-declare module "express-session" {
-  interface SessionData {
-    userId: string;
-  }
-}
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: Player;
-    }
-  }
-}
+// 型定義は server/types/express.d.ts で定義済み

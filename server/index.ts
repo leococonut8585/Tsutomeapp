@@ -7,11 +7,15 @@ import { logger } from "./utils/logger";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { storage } from "./storage";
+import { setupSecurityMiddleware, errorHandler, requestSizeLimits } from "./middleware/security";
 
 const app = express();
 app.set('trust proxy', 1);
 const PgSession = connectPgSimple(session);
 const SESSION_SECRET = process.env.SESSION_SECRET || "tsutomeapp-secret";
+
+// セキュリティミドルウェアを最初に設定
+setupSecurityMiddleware(app);
 
 declare module 'http' {
   interface IncomingMessage {
@@ -19,11 +23,12 @@ declare module 'http' {
   }
 }
 app.use(express.json({
+  limit: requestSizeLimits.json,
   verify: (req, _res, buf) => {
     req.rawBody = buf;
   }
 }));
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false, limit: requestSizeLimits.urlencoded }));
 
 app.use(
   session({
@@ -90,12 +95,16 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
+  // カスタムエラーハンドラー
+  app.use(errorHandler);
+
+  // フォールバックエラーハンドラー
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
+    logger.error("Unhandled error", { error: err.message, stack: err.stack });
   });
 
   // importantly only setup vite in development and after
